@@ -1,0 +1,15 @@
+cache/
+dZSBot/
+
+logs/**
+!logs/
+!logs/.gitkeep
+
+runtime/**
+!runtime/
+!runtime/cache/
+!runtime/cache/.gitkeep
+
+database/*.tsv
+*.log
+*.pid
