@@ -1,0 +1,6 @@
+id	section	relname	u_name	g_name	nukereason	pretime	predate	preage	size	files
+1	MOVIES	Movie.One-GRP	user	GRP		1782935420	20260701	0	1048576	10
+2	MUSIC	Album.One-GRP	user	GRP		1782935420	20260701	0	524288	8
+3	MUSIC	Album.Two-OTHER	user	OTHER		1782935420	20260701	0	1024	2
+4	EBOOKS	Book.One-GRP	user	GRP		1782935420	20260701	0	2048	3
+5	TV	Old.Show-GRP	user	GRP		1782762620	20260629	0	999999	99
