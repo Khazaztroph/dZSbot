@@ -68,17 +68,20 @@ proc ::dZSbot::Modules::IMDb::FloodAllowed {} {
     return 1
 }
 
-proc ::dZSbot::Modules::IMDb::Lookup {query {type ""}} {
+proc ::dZSbot::Modules::IMDb::Lookup {query {type ""} {year ""}} {
 
     set cacheTime [::dZSbot::Config::Get omdb.cache_seconds 86400]
     set cacheKey $query
     if {$type ne ""} {
         set cacheKey "$type:$query"
     }
+    if {$year ne ""} {
+        set cacheKey "$cacheKey:$year"
+    }
     set cached [::dZSbot::Modules::IMDb::Cache::Get $cacheKey $cacheTime]
 
     if {$cached eq ""} {
-        set fetched [::dZSbot::Modules::IMDb::OMDb::Fetch $query $type]
+        set fetched [::dZSbot::Modules::IMDb::OMDb::Fetch $query $type $year]
 
         if {![dict get $fetched ok]} {
             return [dict create ok 0 error [dict get $fetched error]]
@@ -114,12 +117,13 @@ proc ::dZSbot::Modules::IMDb::OnSiteRelease {event payload} {
         return
     }
 
-    set query [CleanReleaseName $release]
+    set parsedRelease [ParseReleaseName $release]
+    set query [dict get $parsedRelease title]
     if {$query eq ""} {
         return
     }
 
-    set result [Lookup $query]
+    set result [Lookup $query "" [dict get $parsedRelease year]]
     set staffChan [::dZSbot::Config::Get imdb.announce.staff_channel "#staff"]
 
     if {![dict get $result ok]} {
@@ -168,13 +172,44 @@ proc ::dZSbot::Modules::IMDb::ShouldLookupSection {section} {
 
 proc ::dZSbot::Modules::IMDb::CleanReleaseName {release} {
 
-    set name [file rootname $release]
+    return [dict get [ParseReleaseName $release] title]
+}
+
+proc ::dZSbot::Modules::IMDb::ParseReleaseName {release} {
+
+    set name [file tail $release]
+
+    # Only remove actual media extensions. "file rootname" also treats the last
+    # scene-name component (for example .x264-GROUP) as an extension.
+    regsub -nocase {\.(mkv|mp4|avi|mov|wmv|m4v|iso)$} $name "" name
+    regsub -- {-[^-._ ]+$} $name "" name
     set name [regsub -all {[\._]+} $name " "]
-    set name [regsub -all -nocase {\m(720p|1080p|2160p|480p|x264|x265|h264|h265|hevc|web|webrip|web-dl|bluray|bdrip|dvdrip|hdrip|proper|repack|internal|limited|readnfo|multi|complete|flac|mp3|aac|dts|atmos)\M} $name " "]
-    set name [regsub -all -nocase {\m(S[0-9]{1,2}E[0-9]{1,2}|S[0-9]{1,2}|Season[ ]*[0-9]+)\M} $name " "]
     regsub -all {[ ]+} [string trim $name] " " name
 
-    return $name
+    set words [split $name " "]
+    set metadataIndex [llength $words]
+    set metadataPattern {^(480p|576p|720p|1080[pi]|2160p|4320p|uhd|xvid|divx|x26[45]|h[ .]?26[45]|hevc|av1|web|web-?dl|webrip|bluray|blu-?ray|b[dr]rip|dvd(?:rip)?|hd(?:tv|rip)|remux|cam|telesync|proper|repack|internal|limited|readnfo|multi|complete|s[0-9]{1,2}(?:e[0-9]{1,3})?|season|ddp?[0-9]*|eac3|ac3|aac|dts|truehd|atmos|flac|mp3)$}
+
+    for {set index 0} {$index < [llength $words]} {incr index} {
+        if {[regexp -nocase $metadataPattern [lindex $words $index]]} {
+            set metadataIndex $index
+            break
+        }
+    }
+
+    set year ""
+    if {$metadataIndex > 0} {
+        set candidate [lindex $words [expr {$metadataIndex - 1}]]
+        if {[regexp {^(18[89][0-9]|19[0-9]{2}|20[0-9]{2})$} $candidate]} {
+            set year $candidate
+            incr metadataIndex -1
+        }
+    }
+
+    set title [join [lrange $words 0 [expr {$metadataIndex - 1}]] " "]
+    regsub -all {[ ]+} [string trim $title] " " title
+
+    return [dict create title $title year $year]
 }
 
 proc ::dZSbot::Modules::IMDb::DictGet {dictValue key default} {
