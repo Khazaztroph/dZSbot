@@ -26,6 +26,33 @@ bundled MySQL path is `tdbc::mysql`, with automatic fallback to global
 innovation/current line, so avoid depending on legacy authentication behaviour
 from old MySQL 5.x era clients.
 
+For Tcl 9.0.2 builds, use TDBC/MySQL packages built for Tcl 9. A clean Cygwin
+install normally places them under:
+
+```text
+/opt/tcl-9.0.2/lib/tdbc1.1.11
+/opt/tcl-9.0.2/lib/tdbcmysql1.1.11
+```
+
+The Tcl 9 package DLLs use names like `cygtcl9tdbc1.1.11.dll` and
+`cygtcl9tdbcmysql1.1.11.dll`. If `package require tdbc` reports `Permission
+denied`, `Exec format error`, or a missing `cygtcl9...dll`, verify that Windows
+ASR/Defender is not blocking Cygwin, Eggdrop, `/opt`, or the dZSbot directory.
+Also make sure no old `/usr/local/lib/tdbc*` package index is being loaded before
+the matching `/opt/tcl-9.0.2/lib` path.
+
+When Eggdrop runs from its own root directory, Cygwin runtime dependencies may
+also need to be visible from that root. For Tcl 9.0.2 with `tdbc::mysql`, the
+working setup uses these MySQL client DLLs in the Eggdrop root:
+
+```text
+cygmysql-15.dll
+libmysql.dll.15
+```
+
+This mirrors how TLS DLLs often need to be available to Eggdrop itself, not only
+inside the Tcl package directory.
+
 ## MySQL TLS
 
 TLS is optional by default and can be required:

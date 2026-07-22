@@ -1,6 +1,24 @@
 dZSbot is a modular framework for Eggdrop, designed for modern ioFTPD environments. 
 Inspired by ioNiNJA, built for today.
 
+## Runtime
+
+dZSbot supports Tcl 8.6+ and is tested with Tcl 9.0.2 on Cygwin/Eggdrop.
+
+Normal Eggdrop start:
+
+```text
+eggdrop.exe eggdrop.conf
+```
+
+Debug/foreground start:
+
+```text
+eggdrop.exe -t eggdrop.conf
+```
+
+Use `eggdrop.exe -m eggdrop.conf` only when creating a fresh Eggdrop userfile.
+
 ## Documentation
 
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)

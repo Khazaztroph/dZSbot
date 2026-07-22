@@ -3,6 +3,40 @@
 The Core is the stable runtime foundation for dZSbot 2.0. It owns startup,
 shared state, health, metrics, transport, and module loading.
 
+## Tcl Runtime
+
+dZSbot supports Tcl 8.6+ and is prepared for Tcl 9.0.2 on modern Cygwin/Eggdrop
+builds. Tcl 8.6 remains the minimum runtime so existing Eggdrop setups can keep
+running, but Tcl 9.0.2 is supported when Eggdrop and the required extension
+packages are built against the same Tcl runtime.
+
+At startup, `dZSbot.tcl` adds the local `lib/` directory first and then prefers
+these Tcl 9.0.2 package paths when they exist:
+
+```text
+/opt/tcl-9.0.2/lib
+/opt/tcl9.0.2/lib
+```
+
+The Tcl 8.6.18 paths remain available as fallback. Avoid mixing Tcl 8 extension
+DLLs with Tcl 9, especially for `tdbc`, `tdbc::mysql`, `sqlite3`, and `tls`.
+
+## Starting Eggdrop
+
+dZSbot does not require Eggdrop's `-t` flag during normal operation. Use `-t`
+when troubleshooting startup, Tcl packages, MySQL, TLS, or module loading.
+
+Common start modes:
+
+```text
+eggdrop.exe eggdrop.conf       normal background operation
+eggdrop.exe -t eggdrop.conf    foreground test/debug mode
+eggdrop.exe -m eggdrop.conf    create the userfile/first owner account
+```
+
+Use `-m` only when creating a fresh Eggdrop userfile. Once the userfile exists,
+normal operation should use `eggdrop.exe eggdrop.conf`.
+
 ## Boot Order
 
 `dZSbot.tcl` loads the core files in this order:
