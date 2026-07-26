@@ -32,3 +32,11 @@ if {[string first "GRP (3)" $joined] < 0} {
 if {[string first "MUSIC (2)" $joined] < 0} {
     error "Expected MUSIC to be top section"
 }
+
+::dZSbot::Config::Set theme.irc.colors 1
+set themedLines [::dZSbot::Modules::Pre::DailyStatsLines]
+foreach themedLine $themedLines {
+    if {[string first "\003" $themedLine] < 0} {
+        error "Expected every PRE stats line to use the active theme: $themedLine"
+    }
+}

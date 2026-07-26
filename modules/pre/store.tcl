@@ -186,6 +186,15 @@ proc ::dZSbot::Modules::Pre::Store::SearchEntries {query {limit 10}} {
     return [Search $query $limit]
 }
 
+proc ::dZSbot::Modules::Pre::Store::LatestEntries {{limit 10}} {
+
+    if {[UsingMySQL]} {
+        return [::dZSbot::Modules::Pre::MySQLStore::Latest $limit]
+    }
+
+    return [Search "" $limit]
+}
+
 proc ::dZSbot::Modules::Pre::Store::Status {} {
 
     set backend [Backend]

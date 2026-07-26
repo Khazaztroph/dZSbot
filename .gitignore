@@ -13,3 +13,7 @@ runtime/**
 database/*.tsv
 *.log
 *.pid
+.dotnet-cli/
+.repos/
+ioftp/**/bin/
+ioftp/**/obj/

@@ -1,5 +1,10 @@
 namespace eval ::dZSbot::Modules::Music::Formatter {}
 
+proc ::dZSbot::Modules::Music::Formatter::FormatRelease {release} {
+
+    return [FormatDiscogsRelease $release]
+}
+
 proc ::dZSbot::Modules::Music::Formatter::FormatDiscogsRelease {release} {
 
     set title [dict get $release title]
@@ -9,7 +14,9 @@ proc ::dZSbot::Modules::Music::Formatter::FormatDiscogsRelease {release} {
     set formats [dict get $release formats]
     set labels [dict get $release labels]
     set genres [dict get $release genres]
-    set uri [dict get $release uri]
+    set uri [DictGet $release uri ""]
+    set url [DictGet $release url ""]
+    set source [DictGet $release source "Music"]
 
     if {![llength $formats]} {
         set formats {N/A}
@@ -22,12 +29,14 @@ proc ::dZSbot::Modules::Music::Formatter::FormatDiscogsRelease {release} {
     }
 
     set urlSuffix ""
-    if {$uri ne ""} {
+    if {$url ne ""} {
+        set urlSuffix " | $url"
+    } elseif {$uri ne ""} {
         set urlSuffix " | https://www.discogs.com$uri"
     }
 
     return [::dZSbot::Theme::Render music.detail [dict create \
-        section MUSIC \
+        section $source \
         title $title \
         year $year \
         formats [join $formats {/}] \
@@ -66,12 +75,26 @@ proc ::dZSbot::Modules::Music::Formatter::PublicLine {release {releaseName ""} {
         release_suffix $releaseSuffix]]
 }
 
-proc ::dZSbot::Modules::Music::Formatter::FormatStatus {supported} {
+proc ::dZSbot::Modules::Music::Formatter::DictGet {dictValue key default} {
+
+    if {[catch {dict exists $dictValue $key} exists] || !$exists} {
+        return $default
+    }
+
+    return [dict get $dictValue $key]
+}
+
+proc ::dZSbot::Modules::Music::Formatter::FormatStatus {supported {providers {}}} {
 
     set parts {}
     foreach format $supported {
         lappend parts "[string toupper $format] OK"
     }
 
-    return "Music Module: [join $parts { | }]"
+    set suffix ""
+    if {[llength $providers]} {
+        set suffix " | Providers: [join $providers { > }]"
+    }
+
+    return "Music Module: [join $parts { | }]$suffix"
 }

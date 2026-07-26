@@ -2,6 +2,9 @@
 # Tcl package index file, version 1.1
 #
 if {[package vsatisfies [package provide Tcl] 9.0-]} {
+    if {![file exists [file join $dir cygtcl9tls2.0.dll]]} {
+        return
+    }
     package ifneeded tls 2.0 [list apply {{dir} {
 	# Load library
 	load [file join $dir cygtcl9tls2.0.dll] [string totitle tls]
@@ -14,6 +17,9 @@ if {[package vsatisfies [package provide Tcl] 9.0-]} {
     }} $dir]
 } else {
     if {![package vsatisfies [package provide Tcl] 8.5]} {return}
+    if {![file exists [file join $dir libtls2.0.dll]]} {
+        return
+    }
     package ifneeded tls 2.0 [list apply {{dir} {
 	# Load library
 	if {[string tolower [file extension libtls2.0.dll]] in [list .dll .dylib .so]} {

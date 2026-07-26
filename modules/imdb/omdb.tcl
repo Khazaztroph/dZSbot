@@ -15,7 +15,7 @@ proc ::dZSbot::Modules::IMDb::OMDb::EnsureHttp {endpoint} {
     return ""
 }
 
-proc ::dZSbot::Modules::IMDb::OMDb::BuildUrl {endpoint apiKey query {type ""}} {
+proc ::dZSbot::Modules::IMDb::OMDb::BuildUrl {endpoint apiKey query {type ""} {year ""}} {
 
     if {[regexp -nocase {^tt[0-9]+$} $query]} {
         set args [list apikey $apiKey i $query plot short r json]
@@ -25,12 +25,15 @@ proc ::dZSbot::Modules::IMDb::OMDb::BuildUrl {endpoint apiKey query {type ""}} {
     if {$type ne ""} {
         lappend args type $type
     }
+    if {$year ne ""} {
+        lappend args y $year
+    }
     set params [::http::formatQuery {*}$args]
 
     return "${endpoint}?$params"
 }
 
-proc ::dZSbot::Modules::IMDb::OMDb::Fetch {query {type ""}} {
+proc ::dZSbot::Modules::IMDb::OMDb::Fetch {query {type ""} {year ""}} {
 
     set apiKey [::dZSbot::Config::Get omdb.api_key ""]
     set endpoint [string trimright [::dZSbot::Config::Get omdb.endpoint "https://www.omdbapi.com/"] "?"]
@@ -45,7 +48,7 @@ proc ::dZSbot::Modules::IMDb::OMDb::Fetch {query {type ""}} {
         return [dict create ok 0 error $packageError]
     }
 
-    set url [BuildUrl $endpoint $apiKey $query $type]
+    set url [BuildUrl $endpoint $apiKey $query $type $year]
 
     if {[catch {
         set token [::http::geturl $url -timeout $timeout]

@@ -35,6 +35,16 @@ if {$::dZSbot::UseOptTclLibs} {
         /opt/tcl8.6.18/lib
         /opt/tcl8.6.18/lib/tdbc1.1.13
         /opt/tcl8.6.18/lib/tdbcmysql1.1.13
+        /opt/tcl-9.0.2/lib
+        /opt/tcl-9.0.2/lib/tdbc1.1.11
+        /opt/tcl-9.0.2/lib/tdbcmysql1.1.11
+        /opt/tcl-9.0.2/lib/tdbc1.1.13
+        /opt/tcl-9.0.2/lib/tdbcmysql1.1.13
+        /opt/tcl9.0.2/lib
+        /opt/tcl9.0.2/lib/tdbc1.1.11
+        /opt/tcl9.0.2/lib/tdbcmysql1.1.11
+        /opt/tcl9.0.2/lib/tdbc1.1.13
+        /opt/tcl9.0.2/lib/tdbcmysql1.1.13
     } {
         if {[file isdirectory $::dZSbot::OptLib]} {
             set ::auto_path [linsert $::auto_path 0 $::dZSbot::OptLib]

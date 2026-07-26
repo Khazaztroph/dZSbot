@@ -203,3 +203,18 @@ proc ::dZSbot::Modules::Pre::MySQLStore::Search {query {limit 10}} {
 
     return [::dZSbot::Database::MySQL::SelectRows $sql $Fields]
 }
+
+proc ::dZSbot::Modules::Pre::MySQLStore::Latest {{limit 10}} {
+
+    variable Fields
+
+    if {![Ensure]} {
+        return [::dZSbot::Modules::Pre::Store::Search "" $limit]
+    }
+
+    set table [QuoteName [Table]]
+    set limit [SqlNumber $limit 10]
+    set sql "SELECT /*+ MAX_EXECUTION_TIME(3000) */ `id`, `section`, `relname`, `u_name`, `g_name`, '' AS `nukereason`, `pretime`, `predate`, `preage`, `size`, `files` FROM $table ORDER BY `pretime` DESC, `id` DESC LIMIT $limit"
+
+    return [::dZSbot::Database::MySQL::SelectRows $sql $Fields]
+}

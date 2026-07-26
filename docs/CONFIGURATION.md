@@ -66,6 +66,36 @@ Templates can be adjusted without changing module code:
 ::dZSbot::Config::Set theme.template.music.public "%tag{{tag}} %c2{{title}} ({year}) | %c3{{formats}} | {labels}"
 ```
 
+IMDb details sent to the staff channel have separate templates for the header
+and every detail row:
+
+```tcl
+::dZSbot::Config::Set theme.template.imdb.detail.header "IMDb details for %c2{{release}}:"
+::dZSbot::Config::Set theme.template.imdb.detail.title "%bold{{title}} ({year}) | %c3{{label}} | {summary}"
+::dZSbot::Config::Set theme.template.imdb.detail.genre "%c1{Genre}: {genre}"
+::dZSbot::Config::Set theme.template.imdb.detail.rating "%c1{IMDb}: %c3{{rating}/10}{bar_suffix} ({votes} votes)"
+::dZSbot::Config::Set theme.template.imdb.detail.director "%c1{Director}: {director}"
+::dZSbot::Config::Set theme.template.imdb.detail.actors "%c1{Actors}: {actors}"
+::dZSbot::Config::Set theme.template.imdb.detail.plot "%c1{Plot}: {plot}"
+::dZSbot::Config::Set theme.template.imdb.detail.url "%muted{{url}}"
+::dZSbot::Config::Set theme.template.tv.detail.header "TV details for %c2{{release}}:"
+```
+
+Available placeholders include `{release}`, `{title}`, `{year}`, `{label}`,
+`{summary}`, `{genre}`, `{rating}`, `{votes}`, `{bar}`, `{bar_suffix}`,
+`{director}`, `{actors}`, `{plot}` and `{url}`.
+
+PRE announcements, search results, bandwidth activity and daily statistics are
+also independently themeable:
+
+```tcl
+::dZSbot::Config::Set theme.template.pre.announce.classic "%c1{{pre_type}}: %c2{{release}} | %c3{{section}} | {group} | {files}F/{size}"
+::dZSbot::Config::Set theme.template.pre.result "%c1{{prefix}}: %c2{{release}} | %c3{{section}} | {age} ago | {user}/{group} | {size} | {files}F"
+::dZSbot::Config::Set theme.template.pre.activity "%c1{PRE-BW}: \[%c3{{section}}\] %c2{{release}} | {delay}s: {activity}"
+::dZSbot::Config::Set theme.template.pre.stats.header "%c1{PRE Daily Stats}: last %c2{{hours}h} | %c3{{releases} releases} | {files}F | {size}"
+::dZSbot::Config::Set theme.template.pre.stats.top "%c1{PRE Top {label}}: %c2{{entries}}"
+```
+
 ## Module Configs
 
 ```text
@@ -93,9 +123,18 @@ Examples:
 
 ```tcl
 # config/modules/music.conf
+::dZSbot::Config::Set music.provider "auto"
+::dZSbot::Config::Set music.providers {musicbrainz lastfm discogs}
+::dZSbot::Config::Set lastfm.api_key "YOUR_KEY_HERE"
 ::dZSbot::Config::Set discogs.auth_mode "token"
 ::dZSbot::Config::Set discogs.token "YOUR_TOKEN_HERE"
 ```
+
+Music providers:
+
+- `musicbrainz` - default first provider. No API key is required, but a real User-Agent is required.
+- `lastfm` - optional fallback. Requires `lastfm.api_key`.
+- `discogs` - optional fallback. Supports token, key/secret, OAuth, or unauthenticated mode.
 
 Discogs auth modes:
 

@@ -10,6 +10,7 @@
 namespace eval ::dZSbot::Commands {
 
     variable Commands
+    variable MaxIrcMessageLength 390
     array set Commands {}
 }
 
@@ -43,13 +44,15 @@ proc ::dZSbot::Commands::Normalize {command} {
 
 proc ::dZSbot::Commands::Reply {nick chan message} {
 
-    if {$chan ne "" && [llength [info commands ::putserv]]} {
-        ::putserv "PRIVMSG $chan :$message"
-        return
-    }
+    set message [IrcSafeMessage $message]
 
     if {[llength [info commands ::puthelp]] && $chan ne ""} {
         ::puthelp "PRIVMSG $chan :$message"
+        return
+    }
+
+    if {$chan ne "" && [llength [info commands ::putserv]]} {
+        ::putserv "PRIVMSG $chan :$message"
         return
     }
 
@@ -59,6 +62,20 @@ proc ::dZSbot::Commands::Reply {nick chan message} {
     }
 
     ::dZSbot::Logger::Plain $message
+}
+
+proc ::dZSbot::Commands::IrcSafeMessage {message} {
+
+    variable MaxIrcMessageLength
+
+    set safe [string map [list "\r" " " "\n" " "] $message]
+    set safe [string trim $safe]
+
+    if {[string length $safe] > $MaxIrcMessageLength} {
+        set safe "[string range $safe 0 [expr {$MaxIrcMessageLength - 4}]]..."
+    }
+
+    return $safe
 }
 
 proc ::dZSbot::Commands::Dispatch {command nick host hand chan text} {

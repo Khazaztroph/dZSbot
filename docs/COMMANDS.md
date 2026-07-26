@@ -13,6 +13,7 @@ normal `bind pub` bindings when available.
 - `!tv <show>`, `!show <show>`: TV compatibility lookup.
 - `!nfo <release>`: show stored NFO summary.
 - `!pre [query]`: search PRE entries.
+- `!predb <query>`: search PreDB.net directly.
 - `!pres`: show latest PRE entries.
 - `!addpre <release> ?section? ?user? ?group? ?size_kb? ?files?`: add a PRE entry.
 - `!preimport nxtools ?Pres.db path?`: import nxTools PRE entries. Requires staff/op access.
@@ -46,3 +47,15 @@ IMDb supports movies and TV series:
 IMDb can also react to site release events published by the site adapter. Public
 summary goes to `imdb.announce.pre_channel`; detailed/admin output goes to
 `imdb.announce.staff_channel`.
+
+## Music
+
+The music module can use multiple metadata providers when uploads or PRE events
+arrive. The default chain is:
+
+```tcl
+::dZSbot::Config::Set music.providers {musicbrainz lastfm discogs}
+```
+
+MusicBrainz works without an API key. Last.fm requires `lastfm.api_key`.
+Discogs remains available for richer release metadata when configured.
