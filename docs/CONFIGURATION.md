@@ -112,6 +112,7 @@ Current module config files:
 - `config/modules/pre.conf`
 - `config/modules/requests.conf`
 - `config/modules/retention.conf`
+- `config/modules/site.conf`
 - `config/modules/tv.conf`
 
 Examples:
@@ -163,5 +164,18 @@ OAuth endpoint defaults:
 ::dZSbot::Config::Set pre.backend "mysql"
 ::dZSbot::Config::Set pre.mysql.table "predb"
 ```
+
+```tcl
+# config/modules/site.conf
+::dZSbot::Config::Set site.df.sections {
+    {MOVIES "D:/ioFTPD/FTP-ROOT-DIR/MOVIES"}
+    {TV "\\\\nas\\site\\TV"}
+    {MUSIC "E:/FTP/MUSIC"}
+}
+```
+
+The `site` module provides `!df` and `!bw`. Disk free uses the configured
+section paths. Bandwidth uses ioFTPD's `ioftpd who` command when dZSbot runs
+inside Eggdrop/ioFTPD.
 
 This keeps `config/dzsbot.conf` small and makes each module easier to configure.

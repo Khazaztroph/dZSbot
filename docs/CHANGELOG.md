@@ -1,3 +1,11 @@
+## 2.0.6 - 2026-07-26
+
+- Added the `site` module with `!df` for configured disk-free sections.
+- Added `!bw` for active ioFTPD transfer and bandwidth status.
+- Added `config/modules/site.conf` for site command settings and disk paths.
+- Added regression coverage for site command registration, disk free checks and
+  ioFTPD transfer sampling.
+
 ## 2.0.5 - 2026-07-26
 
 - Added MusicBrainz and Last.fm providers with a configurable fallback chain
