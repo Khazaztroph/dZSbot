@@ -41,4 +41,19 @@ if {[string first {TV Series} $publicLine] < 0} {
     error "Expected TV public line to identify TV Series"
 }
 
+if {[::dZSbot::Modules::TV::DetailHeader Example.Series] ne "TV details for Example.Series:"} {
+    error "Unexpected default TV detail header"
+}
+
+::dZSbot::Config::Set theme.irc.colors 1
+if {[string first "\003" [::dZSbot::Modules::TV::DetailHeader Example.Series]] < 0} {
+    error "Expected TV detail header to use the active theme"
+}
+foreach detailLine [::dZSbot::Modules::TV::TVLines [dict get $parsed title]] {
+    if {[string first "\003" $detailLine] < 0} {
+        error "Expected every TV detail line to use the active theme: $detailLine"
+    }
+}
+::dZSbot::Config::Set theme.irc.colors 0
+
 puts "TV compatibility lookup OK: $publicLine"

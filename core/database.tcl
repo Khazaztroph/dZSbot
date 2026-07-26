@@ -350,11 +350,27 @@ proc ::dZSbot::Database::MySQL::TdbcSelectFlat {sql} {
     variable Handle
 
     set flat {}
-    foreach row [$Handle allrows -as lists $sql] {
-        foreach value $row {
-            lappend flat $value
-        }
+
+    set statement [$Handle prepare $sql]
+    if {[catch {set resultSet [$statement execute]} error options]} {
+        catch {$statement close}
+        return -options $options $error
     }
+
+    if {[catch {
+        while {[$resultSet nextlist row]} {
+            foreach value $row {
+                lappend flat $value
+            }
+        }
+    } error options]} {
+        catch {$resultSet close}
+        catch {$statement close}
+        return -options $options $error
+    }
+
+    catch {$resultSet close}
+    catch {$statement close}
 
     return $flat
 }
