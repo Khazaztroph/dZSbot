@@ -33,6 +33,19 @@ proc ::dZSbot::Modules::IMDb::OMDb::BuildUrl {endpoint apiKey query {type ""} {y
     return "${endpoint}?$params"
 }
 
+proc ::dZSbot::Modules::IMDb::OMDb::BuildSearchUrl {endpoint apiKey query {type ""} {year ""}} {
+
+    set args [list apikey $apiKey s $query r json]
+    if {$type ne ""} {
+        lappend args type $type
+    }
+    if {$year ne ""} {
+        lappend args y $year
+    }
+
+    return "${endpoint}?[::http::formatQuery {*}$args]"
+}
+
 proc ::dZSbot::Modules::IMDb::OMDb::Fetch {query {type ""} {year ""}} {
 
     set apiKey [::dZSbot::Config::Get omdb.api_key ""]
@@ -48,21 +61,123 @@ proc ::dZSbot::Modules::IMDb::OMDb::Fetch {query {type ""} {year ""}} {
         return [dict create ok 0 error $packageError]
     }
 
-    set url [BuildUrl $endpoint $apiKey $query $type $year]
+    set fetched [Request [BuildUrl $endpoint $apiKey $query $type $year] $timeout]
+    if {![dict get $fetched ok]} {
+        return $fetched
+    }
 
+    if {[regexp -nocase {^tt[0-9]+$} $query] ||
+        ![::dZSbot::Config::Get omdb.search_fallback 1] ||
+        ![ShouldSearchFallback [dict get $fetched data]]} {
+        return $fetched
+    }
+
+    set searched [Request [BuildSearchUrl $endpoint $apiKey $query $type $year] $timeout]
+    if {![dict get $searched ok]} {
+        return $searched
+    }
+
+    set imdbId [SelectSearchResult [dict get $searched data] $query $type $year]
+    if {$imdbId eq ""} {
+        return $fetched
+    }
+
+    return [Request [BuildUrl $endpoint $apiKey $imdbId] $timeout]
+}
+
+proc ::dZSbot::Modules::IMDb::OMDb::Request {url timeout} {
+
+    set token ""
     if {[catch {
         set token [::http::geturl $url -timeout $timeout]
         set status [::http::status $token]
         set code [::http::ncode $token]
         set data [::http::data $token]
-        ::http::cleanup $token
     } error]} {
+        if {$token ne ""} {
+            catch {::http::cleanup $token}
+        }
         return [dict create ok 0 error $error]
     }
+
+    ::http::cleanup $token
 
     if {$status ne "ok" || $code < 200 || $code >= 300} {
         return [dict create ok 0 error "HTTP status $status ($code)"]
     }
 
     return [dict create ok 1 data $data]
+}
+
+proc ::dZSbot::Modules::IMDb::OMDb::ShouldSearchFallback {json} {
+
+    return [expr {
+        [regexp -nocase {"Response"[ \t\r\n]*:[ \t\r\n]*"False"} $json] &&
+        [regexp -nocase {"Error"[ \t\r\n]*:[ \t\r\n]*"[^"]*not found} $json]
+    }]
+}
+
+proc ::dZSbot::Modules::IMDb::OMDb::NormalizeTitle {title} {
+
+    set normalized [string tolower [string trim $title]]
+    regsub -all {[^[:alnum:]]+} $normalized "" normalized
+    return $normalized
+}
+
+proc ::dZSbot::Modules::IMDb::OMDb::SelectSearchResult {json query {type ""} {year ""}} {
+
+    if {[catch {
+        package require json
+        set data [::json::json2dict $json]
+    }]} {
+        if {[regexp -nocase {"imdbID"[ \t\r\n]*:[ \t\r\n]*"(tt[0-9]+)"} $json -> imdbId]} {
+            return $imdbId
+        }
+        return ""
+    }
+
+    if {![dict exists $data Response] ||
+        ![string equal -nocase [dict get $data Response] "True"] ||
+        ![dict exists $data Search]} {
+        return ""
+    }
+
+    set normalizedQuery [NormalizeTitle $query]
+    set bestId ""
+    set bestScore -100000
+    set index 0
+
+    foreach result [dict get $data Search] {
+        if {![dict exists $result imdbID]} {
+            incr index
+            continue
+        }
+
+        set score [expr {-$index}]
+        set resultTitle [expr {[dict exists $result Title] ? [dict get $result Title] : ""}]
+        set resultYear [expr {[dict exists $result Year] ? [dict get $result Year] : ""}]
+        set resultType [expr {[dict exists $result Type] ? [dict get $result Type] : ""}]
+        set normalizedResult [NormalizeTitle $resultTitle]
+
+        if {$normalizedResult eq $normalizedQuery} {
+            incr score 100
+        } elseif {[string first $normalizedQuery $normalizedResult] == 0 ||
+                  [string first $normalizedResult $normalizedQuery] == 0} {
+            incr score 40
+        }
+        if {$year ne "" && [string first $year $resultYear] == 0} {
+            incr score 25
+        }
+        if {$type ne "" && [string equal -nocase $type $resultType]} {
+            incr score 10
+        }
+
+        if {$bestId eq "" || $score > $bestScore} {
+            set bestId [dict get $result imdbID]
+            set bestScore $score
+        }
+        incr index
+    }
+
+    return $bestId
 }

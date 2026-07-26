@@ -1,5 +1,8 @@
 ## 2.0.6 - 2026-07-26
 
+- Added an OMDb title-search fallback for exact-title misses. The best
+  title/year/type match is resolved to an IMDb ID before full metadata is
+  fetched, fixing releases such as `Bad.Boy.in.Love.2024.720p.WEB.H264-AFO`.
 - Added the `site` module with `!df` for configured disk-free sections.
 - Added `!bw` for active ioFTPD transfer and bandwidth status.
 - Added `config/modules/site.conf` for site command settings and disk paths.

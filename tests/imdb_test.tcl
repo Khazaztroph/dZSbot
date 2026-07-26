@@ -84,6 +84,88 @@ if {[string first "t=Blade%20Runner" $movieUrl] < 0 || [string first "y=1982" $m
     error "Expected a clean title and separate year in OMDb URL: $movieUrl"
 }
 
+set badBoyRelease [::dZSbot::Modules::IMDb::ParseReleaseName {Bad.Boy.in.Love.2024.720p.WEB.H264-AFO}]
+if {[dict get $badBoyRelease title] ne "Bad Boy in Love" || [dict get $badBoyRelease year] ne "2024"} {
+    error "Unexpected parsed Bad Boy in Love release: $badBoyRelease"
+}
+
+set searchUrl [::dZSbot::Modules::IMDb::OMDb::BuildSearchUrl \
+    "https://www.omdbapi.com/" \
+    "KEY" \
+    [dict get $badBoyRelease title] \
+    movie \
+    [dict get $badBoyRelease year]]
+if {[string first "s=Bad%20Boy%20in%20Love" $searchUrl] < 0 ||
+    [string first "type=movie" $searchUrl] < 0 ||
+    [string first "y=2024" $searchUrl] < 0} {
+    error "Expected OMDb fallback search URL to include title, type and year: $searchUrl"
+}
+
+set notFoundResponse {{"Response":"False","Error":"Movie not found!"}}
+if {![::dZSbot::Modules::IMDb::OMDb::ShouldSearchFallback $notFoundResponse]} {
+    error "Expected Movie not found response to trigger OMDb search fallback"
+}
+if {[::dZSbot::Modules::IMDb::OMDb::ShouldSearchFallback {{"Response":"False","Error":"Invalid API key!"}}]} {
+    error "Expected API errors not to trigger OMDb search fallback"
+}
+
+set searchResponse {{"Search":[{"Title":"Bad Boy in Love","Year":"2024","imdbID":"tt27524980","Type":"movie","Poster":"N/A"},{"Title":"Bad Boys","Year":"1995","imdbID":"tt0112442","Type":"movie","Poster":"N/A"}],"totalResults":"2","Response":"True"}}
+set selectedId [::dZSbot::Modules::IMDb::OMDb::SelectSearchResult \
+    $searchResponse \
+    "Bad Boy in Love" \
+    movie \
+    2024]
+if {$selectedId ne "tt27524980"} {
+    error "Expected fallback search to select tt27524980, got: $selectedId"
+}
+
+::dZSbot::Config::Set omdb.api_key KEY
+::dZSbot::Config::Set omdb.endpoint http://example.test/
+::dZSbot::Config::Set omdb.search_fallback 1
+set ::fallbackUrls {}
+rename ::dZSbot::Modules::IMDb::OMDb::Request ::dZSbot::Modules::IMDb::OMDb::RequestReal
+proc ::dZSbot::Modules::IMDb::OMDb::Request {url timeout} {
+    lappend ::fallbackUrls $url
+    if {[string first "t=Bad%20Boy%20in%20Love" $url] >= 0} {
+        return [dict create ok 1 data $::notFoundResponse]
+    }
+    if {[string first "s=Bad%20Boy%20in%20Love" $url] >= 0} {
+        return [dict create ok 1 data $::searchResponse]
+    }
+    if {[string first "i=tt27524980" $url] >= 0} {
+        return [dict create ok 1 data $::sample]
+    }
+    return [dict create ok 0 error "Unexpected fallback URL: $url"]
+}
+set fallbackResult [::dZSbot::Modules::IMDb::OMDb::Fetch "Bad Boy in Love" movie 2024]
+rename ::dZSbot::Modules::IMDb::OMDb::Request {}
+rename ::dZSbot::Modules::IMDb::OMDb::RequestReal ::dZSbot::Modules::IMDb::OMDb::Request
+::dZSbot::Config::Set omdb.api_key ""
+::dZSbot::Config::Set omdb.endpoint https://www.omdbapi.com/
+
+if {![dict get $fallbackResult ok] || [dict get $fallbackResult data] ne $sample} {
+    error "Expected exact lookup, search fallback and IMDb ID lookup to succeed: $fallbackResult"
+}
+if {[llength $::fallbackUrls] != 3} {
+    error "Expected three OMDb requests during fallback, got: $::fallbackUrls"
+}
+
+set cacheRetryKey "movie:Bad Boy in Love:2024"
+::dZSbot::Modules::IMDb::Cache::Set $cacheRetryKey $notFoundResponse
+set ::cacheRetryFetches 0
+rename ::dZSbot::Modules::IMDb::OMDb::Fetch ::dZSbot::Modules::IMDb::OMDb::FetchReal
+proc ::dZSbot::Modules::IMDb::OMDb::Fetch {query {type ""} {year ""}} {
+    incr ::cacheRetryFetches
+    return [dict create ok 1 data $::sample]
+}
+set cacheRetryResult [::dZSbot::Modules::IMDb::Lookup "Bad Boy in Love" movie 2024]
+rename ::dZSbot::Modules::IMDb::OMDb::Fetch {}
+rename ::dZSbot::Modules::IMDb::OMDb::FetchReal ::dZSbot::Modules::IMDb::OMDb::Fetch
+
+if {![dict get $cacheRetryResult ok] || $::cacheRetryFetches != 1} {
+    error "Expected a cached not-found response to be discarded and retried"
+}
+
 rename ::dZSbot::Modules::IMDb::Lookup ::dZSbot::Modules::IMDb::LookupReal
 proc ::dZSbot::Modules::IMDb::Lookup {query {type ""} {year ""}} {
     set ::newUploadLookup [list $query $type $year]

@@ -80,6 +80,17 @@ proc ::dZSbot::Modules::IMDb::Lookup {query {type ""} {year ""}} {
     }
     set cached [::dZSbot::Modules::IMDb::Cache::Get $cacheKey $cacheTime]
 
+    if {$cached ne ""} {
+        if {[catch {
+            set parsed [::dZSbot::Modules::IMDb::Parser::ParseTitle $cached]
+        }] || ![dict get $parsed ok]} {
+            # Older versions cached OMDb "not found" responses. Discard them so
+            # the search fallback gets a chance to resolve the title.
+            ::dZSbot::Modules::IMDb::Cache::Delete $cacheKey
+            set cached ""
+        }
+    }
+
     if {$cached eq ""} {
         set fetched [::dZSbot::Modules::IMDb::OMDb::Fetch $query $type $year]
 
@@ -87,17 +98,20 @@ proc ::dZSbot::Modules::IMDb::Lookup {query {type ""} {year ""}} {
             return [dict create ok 0 error [dict get $fetched error]]
         }
 
-        set cached [::dZSbot::Modules::IMDb::Cache::Set $cacheKey [dict get $fetched data]]
-    }
+        set cached [dict get $fetched data]
 
-    if {[catch {
-        set parsed [::dZSbot::Modules::IMDb::Parser::ParseTitle $cached]
-    } error]} {
-        return [dict create ok 0 error "response parse failed"]
-    }
+        if {[catch {
+            set parsed [::dZSbot::Modules::IMDb::Parser::ParseTitle $cached]
+        }]} {
+            return [dict create ok 0 error "response parse failed"]
+        }
 
-    if {![dict get $parsed ok]} {
-        return [dict create ok 0 error [dict get $parsed error]]
+        if {![dict get $parsed ok]} {
+            return [dict create ok 0 error [dict get $parsed error]]
+        }
+
+        # Cache only successfully parsed title responses, never OMDb errors.
+        ::dZSbot::Modules::IMDb::Cache::Set $cacheKey $cached
     }
 
     set title [dict get $parsed title]

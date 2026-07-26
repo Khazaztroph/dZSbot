@@ -42,7 +42,10 @@ IMDb supports movies and TV series:
 - movie title lookups: `!imdb Blade Runner`
 - TV series lookups: `!imdb The Last of Us`
 - IMDb ID lookups: `!imdb tt0083658`
+- automatic search fallback: when OMDb's exact title lookup returns “not found”,
+  dZSbot searches by title/year/type and fetches the best result by IMDb ID
 - cache: `omdb.cache_seconds`
+- search fallback toggle: `omdb.search_fallback`
 - flood protection: `omdb.max_requests` and `omdb.period_seconds`
 - optional Eggdrop channel flag: `omdb.require_channel_flag`
 
