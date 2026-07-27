@@ -23,6 +23,7 @@ Use `eggdrop.exe -m eggdrop.conf` only when creating a fresh Eggdrop userfile.
 
 ## Documentation
 
+- [Site Commands: !df and !bw](docs/SITE_COMMANDS.md)
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Architecture Philosophy](docs/ARCHITECTURE_PHILOSOPHY.md)
 - [Architecture](docs/ARCHITECTURE.md)

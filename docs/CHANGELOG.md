@@ -1,3 +1,14 @@
+## 2.0.7 - 2026-07-27
+
+- Added cache-based `!df` disk-free reporting for Windows/Eggdrop setups where
+  direct Tcl `exec` stderr handling is unreliable.
+- Added `scripts/dzsbot_df.ps1`, `scripts/dzsbot_df.bat` and an example section
+  TSV for scheduled disk-free cache updates.
+- Improved `!bw` with a tested ioFTPD-side cache exporter based on ioFTPD's
+  internal `client who` status for live transfer speed.
+- Added `docs/SITE_COMMANDS.md` with setup and troubleshooting for `!df` and
+  `!bw`.
+
 ## 2.0.6 - 2026-07-26
 
 - Added an OMDb title-search fallback for exact-title misses. The best
@@ -5,6 +16,8 @@
   fetched, fixing releases such as `Bad.Boy.in.Love.2024.720p.WEB.H264-AFO`.
 - Added the `site` module with `!df` for configured disk-free sections.
 - Added `!bw` for active ioFTPD transfer and bandwidth status.
+- Changed the recommended `!bw` source to a fresh ioFTPD-side cache exporter so
+  live FXP speeds come from `client who` instead of `SITE TRAFFIC`/`SITE STATS`.
 - Added `config/modules/site.conf` for site command settings and disk paths.
 - Added regression coverage for site command registration, disk free checks and
   ioFTPD transfer sampling.

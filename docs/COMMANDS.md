@@ -18,7 +18,7 @@ normal `bind pub` bindings when available.
 - `!addpre <release> ?section? ?user? ?group? ?size_kb? ?files?`: add a PRE entry.
 - `!preimport nxtools ?Pres.db path?`: import nxTools PRE entries. Requires staff/op access.
 - `!df [section]`: show configured site disk free space.
-- `!bw`: show active ioFTPD transfers and total bandwidth.
+- `!bw`: show live ioFTPD transfer bandwidth from the dZSbot ioFTPD cache exporter.
 - `!request <release/title>`, `!req <release/title>`: add a request.
 - `!requests`: list open requests.
 - `!reqfill <release/title>`: mark an open request as filled.

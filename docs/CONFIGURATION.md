@@ -169,13 +169,51 @@ OAuth endpoint defaults:
 # config/modules/site.conf
 ::dZSbot::Config::Set site.df.sections {
     {MOVIES "D:/ioFTPD/FTP-ROOT-DIR/MOVIES"}
-    {TV "\\\\nas\\site\\TV"}
+    {TV "//nas/site/TV"}
     {MUSIC "E:/FTP/MUSIC"}
 }
 ```
 
+Use forward slashes in Windows and UNC paths. Tcl treats backslashes as escape
+characters, so forward slashes avoid broken list values such as `unmatched open
+quote in list`. A dict-style configuration is also supported:
+
+```tcl
+::dZSbot::Config::Set site.df.sections [dict create \
+    MOVIES "D:/ioFTPD/FTP-ROOT-DIR/MOVIES" \
+    TV "//nas/site/TV" \
+    MUSIC "E:/FTP/MUSIC"]
+```
+
 The `site` module provides `!df` and `!bw`. Disk free uses the configured
-section paths. Bandwidth uses ioFTPD's `ioftpd who` command when dZSbot runs
-inside Eggdrop/ioFTPD.
+section paths. Bandwidth uses a small ioFTPD-side cache exporter by default.
+See `docs/SITE_COMMANDS.md` for the complete setup guide.
+
+```tcl
+::dZSbot::Config::Set site.commands.df.source "cache"
+::dZSbot::Config::Set site.commands.df.cache_file "C:/ioFTPD/logs/dzsbot-df.tsv"
+::dZSbot::Config::Set site.commands.df.cache_max_age_seconds 300
+::dZSbot::Config::Set site.commands.bw.source "cache"
+::dZSbot::Config::Set site.commands.bw.cache_file "C:/ioFTPD/logs/dzsbot-bw.tsv"
+::dZSbot::Config::Set site.commands.bw.cache_max_age_seconds 15
+```
+
+Install `scripts/dzsbot_ioftpd_bw.tcl` on the ioFTPD side and run it from
+ioFTPD, writing to the same `site.commands.bw.cache_file`. The command can be
+called as:
+
+```text
+TCL ..\scripts\dzsbot_ioftpd_bw.tcl BW C:/ioFTPD/logs/dzsbot-bw.tsv
+```
+
+`site.commands.bw.source` also accepts `ioftpd` when dZSbot runs inside the
+ioFTPD Tcl environment. `site`, `ftp`, and `ftps` remain available as manual
+diagnostic fallbacks, but they are not recommended for live bandwidth because
+`SITE TRAFFIC`/`SITE STATS` normally report site statistics/status instead of
+current transfer speed.
+
+The FTP control connection is configured for Tcl 9 compatibility with CRLF
+translation and `iso8859-1` encoding. Do not use Tcl 8's old
+`-encoding binary` form for FTP control sockets.
 
 This keeps `config/dzsbot.conf` small and makes each module easier to configure.
