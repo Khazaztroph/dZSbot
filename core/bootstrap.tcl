@@ -114,6 +114,31 @@ proc ::dZSbot::Bootstrap::Ready {} {
 
 }
 
+proc ::dZSbot::Bootstrap::StartUpdateCheck {} {
+
+    if {![llength [info commands ::dZSbot::UpdateCheck::Start]]} {
+        set updateCheckPath [file join $::dZSbot::Root core updatecheck.tcl]
+        if {[file exists $updateCheckPath]} {
+            if {[catch {source $updateCheckPath} error]} {
+                ::dZSbot::Logger::Warn "Update check could not be loaded: $error"
+            }
+        }
+    }
+
+    if {[llength [info commands ::dZSbot::UpdateCheck::Start]]} {
+        if {[catch {::dZSbot::UpdateCheck::Start} error]} {
+            ::dZSbot::Logger::Warn "Update check could not be started: $error"
+            ::dZSbot::Health::Set update-check warn $error
+            return 0
+        }
+        return 1
+    }
+
+    ::dZSbot::Logger::Warn "Update check is unavailable; core/updatecheck.tcl is missing."
+    ::dZSbot::Health::Set update-check disabled "core/updatecheck.tcl missing"
+    return 0
+}
+
 proc ::dZSbot::Bootstrap::Start {} {
 
     variable Started
@@ -155,7 +180,7 @@ proc ::dZSbot::Bootstrap::Start {} {
 
     StatusLine ""
     ::dZSbot::SiteAdapter::StartNxPreWatcher
-    ::dZSbot::UpdateCheck::Start
+    StartUpdateCheck
     ::dZSbot::Transport::Publish core.ready [dict create loadedModules $loadedCount]
     ::dZSbot::Health::WriteHeartbeat
 

@@ -11,6 +11,8 @@
   while keeping network and API errors out of IRC.
 - Added regression coverage for PRE duplicate detection, semantic version
   comparison, update caching, scheduling and notifications.
+- Made startup tolerant of partial upgrades where `bootstrap.tcl` is updated
+  before `core/updatecheck.tcl` or the main `dZSbot.tcl` entrypoint.
 
 ## 2.0.7 - 2026-07-27
 
