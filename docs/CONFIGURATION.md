@@ -24,6 +24,21 @@ Admin status command:
 ::dZSbot::Config::Set status.require_channel_op 1
 ```
 
+Daily GitHub release checks:
+
+```tcl
+::dZSbot::Config::Set update_check.enabled 1
+::dZSbot::Config::Set update_check.channel ""
+::dZSbot::Config::Set update_check.interval_seconds 86400
+::dZSbot::Config::Set update_check.timeout_ms 10000
+```
+
+dZSbot checks GitHub Releases at most once per interval and stores the last
+check time under `runtime/`. A message is sent to the configured admin channel
+only when the latest release tag is newer than the installed version. Network
+and API errors are logged without posting an IRC message. Leave
+`update_check.channel` empty to follow `status.admin_channel`.
+
 With this enabled, `!dzb status` only works for channel operators in `#staff`.
 
 ## Theme Configs

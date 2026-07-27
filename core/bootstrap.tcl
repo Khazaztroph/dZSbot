@@ -155,6 +155,7 @@ proc ::dZSbot::Bootstrap::Start {} {
 
     StatusLine ""
     ::dZSbot::SiteAdapter::StartNxPreWatcher
+    ::dZSbot::UpdateCheck::Start
     ::dZSbot::Transport::Publish core.ready [dict create loadedModules $loadedCount]
     ::dZSbot::Health::WriteHeartbeat
 

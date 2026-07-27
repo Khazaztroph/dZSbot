@@ -136,6 +136,22 @@ proc ::dZSbot::Modules::Pre::Store::Search {query {limit 10}} {
     return $result
 }
 
+proc ::dZSbot::Modules::Pre::Store::ExistsLocal {release} {
+
+    set release [string trim $release]
+    if {$release eq ""} {
+        return 0
+    }
+
+    foreach row [All] {
+        if {[string equal -nocase [dict get $row relname] $release]} {
+            return 1
+        }
+    }
+
+    return 0
+}
+
 proc ::dZSbot::Modules::Pre::Store::Backend {} {
 
     return [string tolower [::dZSbot::Config::Get pre.backend "tsv"]]
@@ -184,6 +200,15 @@ proc ::dZSbot::Modules::Pre::Store::SearchEntries {query {limit 10}} {
     }
 
     return [Search $query $limit]
+}
+
+proc ::dZSbot::Modules::Pre::Store::Exists {release} {
+
+    if {[UsingMySQL]} {
+        return [::dZSbot::Modules::Pre::MySQLStore::Exists $release]
+    }
+
+    return [ExistsLocal $release]
 }
 
 proc ::dZSbot::Modules::Pre::Store::LatestEntries {{limit 10}} {

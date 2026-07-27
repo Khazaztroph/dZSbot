@@ -65,6 +65,7 @@ source [file join $::dZSbot::Root core commands.tcl]
 source [file join $::dZSbot::Root core transport.tcl]
 source [file join $::dZSbot::Root core siteadapter.tcl]
 source [file join $::dZSbot::Root core modulemanager.tcl]
+source [file join $::dZSbot::Root core updatecheck.tcl]
 source [file join $::dZSbot::Root core bootstrap.tcl]
 
 ::dZSbot::Bootstrap::Start

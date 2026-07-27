@@ -100,7 +100,8 @@ prevent local PRE searches from working.
 
 `!preimport nxtools` reads nxTools `Pres.db` and writes missing entries into
 the active dZSbot PRE backend. If `pre.backend` is `mysql`, the import writes to
-MySQL. Existing releases are skipped.
+MySQL. Existing release names are checked exactly and case-insensitively before
+each insert. Repeated releases in the same `Pres.db` import are also skipped.
 
 ## Daily Stats
 

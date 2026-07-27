@@ -204,6 +204,22 @@ proc ::dZSbot::Modules::Pre::MySQLStore::Search {query {limit 10}} {
     return [::dZSbot::Database::MySQL::SelectRows $sql $Fields]
 }
 
+proc ::dZSbot::Modules::Pre::MySQLStore::Exists {release} {
+
+    set release [string trim $release]
+    if {$release eq ""} {
+        return 0
+    }
+
+    if {![Ensure]} {
+        return [::dZSbot::Modules::Pre::Store::ExistsLocal $release]
+    }
+
+    set table [QuoteName [Table]]
+    set sql "SELECT `id` FROM $table WHERE `relname` = [SqlString $release] LIMIT 1"
+    return [expr {[llength [::dZSbot::Database::MySQL::SelectFlat $sql]] > 0}]
+}
+
 proc ::dZSbot::Modules::Pre::MySQLStore::Latest {{limit 10}} {
 
     variable Fields

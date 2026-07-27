@@ -223,13 +223,7 @@ proc ::dZSbot::Modules::Pre::ActivityPathMatches {vpath payload} {
 
 proc ::dZSbot::Modules::Pre::AlreadyKnown {release} {
 
-    foreach row [::dZSbot::Modules::Pre::Store::SearchEntries $release 10] {
-        if {[string equal -nocase [dict get $row relname] $release]} {
-            return 1
-        }
-    }
-
-    return 0
+    return [::dZSbot::Modules::Pre::Store::Exists $release]
 }
 
 proc ::dZSbot::Modules::Pre::DictGet {dictValue key default} {

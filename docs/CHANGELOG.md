@@ -1,3 +1,17 @@
+## 2.0.8 - 2026-07-27
+
+- Fixed `!preimport nxtools` duplicate handling for MySQL by checking exact
+  release names before insert.
+- Added case-insensitive duplicate detection for both MySQL and TSV storage.
+- Skipped repeated releases within the same nxTools `Pres.db` import and across
+  repeated imports.
+- Added a persistent daily GitHub Releases check based on the FluxFTP update
+  checker.
+- Added admin-channel notifications when a newer dZSbot release is available,
+  while keeping network and API errors out of IRC.
+- Added regression coverage for PRE duplicate detection, semantic version
+  comparison, update caching, scheduling and notifications.
+
 ## 2.0.7 - 2026-07-27
 
 - Added cache-based `!df` disk-free reporting for Windows/Eggdrop setups where
