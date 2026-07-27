@@ -42,3 +42,13 @@ proc ::dZSbot::Modules::IMDb::Cache::Set {query data} {
 
     return $data
 }
+
+proc ::dZSbot::Modules::IMDb::Cache::Delete {query} {
+
+    variable Values
+    variable Times
+
+    set key [Key $query]
+    unset -nocomplain Values($key)
+    unset -nocomplain Times($key)
+}

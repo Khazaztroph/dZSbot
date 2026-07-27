@@ -91,7 +91,7 @@ proc ::dZSbot::Modules::TV::OnSiteRelease {event payload} {
     set title [dict get $result title]
 
     ::dZSbot::Commands::Reply "" $preChan [PublicLine $title $release]
-    ::dZSbot::Commands::Reply "" $staffChan "TV details for $release:"
+    ::dZSbot::Commands::Reply "" $staffChan [DetailHeader $release]
 
     foreach line [dict get $result lines] {
         ::dZSbot::Commands::Reply "" $staffChan $line
@@ -101,6 +101,13 @@ proc ::dZSbot::Modules::TV::OnSiteRelease {event payload} {
 proc ::dZSbot::Modules::TV::TVLines {title} {
 
     return [::dZSbot::Modules::IMDb::Formatter::MovieLines $title]
+}
+
+proc ::dZSbot::Modules::TV::DetailHeader {release} {
+
+    return [::dZSbot::Theme::Render tv.detail.header [dict create \
+        section TV \
+        release $release] {TV details for {release}:}]
 }
 
 proc ::dZSbot::Modules::TV::PublicLine {title {release ""}} {

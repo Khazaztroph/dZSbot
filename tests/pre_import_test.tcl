@@ -24,6 +24,10 @@ db eval {
     INSERT INTO Pres(TimeStamp,UserName,GroupName,Area,Release,Files,Size)
     VALUES(1800000000,'khaz','MEV','MUSIC','Example.Release.FLAC-GROUP',5,82865)
 }
+db eval {
+    INSERT INTO Pres(TimeStamp,UserName,GroupName,Area,Release,Files,Size)
+    VALUES(1800000001,'other','OTHER','MUSIC','example.release.flac-group',5,82865)
+}
 db close
 
 ::dZSbot::Config::Set pre.backend "tsv"
@@ -54,13 +58,18 @@ if {$existingRealDb ne ""} {
 }
 
 set result [::dZSbot::Modules::Pre::NxTools::ImportPres $sourceDb]
-if {![dict get $result ok] || [dict get $result imported] != 1} {
-    error "Expected one nxTools PRE import: $result"
+if {![dict get $result ok] || [dict get $result imported] != 1 || [dict get $result skipped] != 1} {
+    error "Expected one import and one in-file duplicate skip: $result"
 }
 
 set rows [::dZSbot::Modules::Pre::Store::SearchEntries Example.Release 5]
-if {![llength $rows]} {
-    error "Expected imported PRE row"
+if {[llength $rows] != 1} {
+    error "Expected exactly one imported PRE row: $rows"
+}
+
+set repeated [::dZSbot::Modules::Pre::NxTools::ImportPres $sourceDb]
+if {![dict get $repeated ok] || [dict get $repeated imported] != 0 || [dict get $repeated skipped] != 2} {
+    error "Expected repeated import to skip both existing releases: $repeated"
 }
 
 puts "Imported nxTools PRE: [lindex $rows 0]"

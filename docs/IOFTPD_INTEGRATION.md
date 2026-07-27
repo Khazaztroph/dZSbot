@@ -146,6 +146,64 @@ Config:
 ::dZSbot::Config::Set upload.announce.events {newdir complete}
 ```
 
+## Live Bandwidth
+
+`!bw` should use the dZSbot ioFTPD cache exporter. This avoids the old
+`SITE TRAFFIC`/`SITE STATS` problem where IRC received site statistics or
+status text instead of actual live transfer speed, especially during FXP.
+
+Install `scripts/dzsbot_ioftpd_bw.tcl` under `C:/ioFTPD/scripts`:
+
+```text
+C:/ioFTPD/scripts/dzsbot_ioftpd_bw.tcl
+```
+
+Register it under `[FTP_Custom_Commands]`:
+
+```ini
+dzsbw = TCL ..\scripts\dzsbot_ioftpd_bw.tcl BW C:/ioFTPD/logs/dzsbot-bw.tsv
+```
+
+Allow the command under the matching permissions section:
+
+```ini
+dzsbw = 1M
+```
+
+Run it manually with:
+
+```text
+SITE DZSBW
+```
+
+dZSbot then reads the same file:
+
+```tcl
+::dZSbot::Config::Set site.commands.bw.source "cache"
+::dZSbot::Config::Set site.commands.bw.cache_file "C:/ioFTPD/logs/dzsbot-bw.tsv"
+::dZSbot::Config::Set site.commands.bw.cache_max_age_seconds 15
+```
+
+The cache format is tab-separated and intentionally small:
+
+```text
+timestamp direction user group speed_kbps virtual_path data_path status
+```
+
+`!bw` summarizes the file as upload, download, idle and total speed, then prints
+the active transfers up to `site.commands.bw.max_lines`.
+
+If the exporter should also update automatically, add it to the existing
+`[Scheduler]` section. Do not add a second `[Scheduler]` header:
+
+```ini
+DZSBW = * * * * TCL ..\scripts\dzsbot_ioftpd_bw.tcl BW C:/ioFTPD/logs/dzsbot-bw.tsv
+DZSDF = 0,5,10,15,20,25,30,35,40,45,50,55 * * * EXEC ..\scripts\dzsbot_df.bat
+```
+
+ioFTPD's scheduler is normally minute-based. For scheduler-only setups, set
+`site.commands.bw.cache_max_age_seconds` to at least `75`.
+
 ## Security
 
 Local event scripts/log reads are acceptable because they do not cross the

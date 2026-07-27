@@ -51,7 +51,12 @@ proc ::dZSbot::Modules::Music::Parser::JsonArrayValues {json key} {
 
 proc ::dZSbot::Modules::Music::Parser::FirstResultObject {json} {
 
-    set pos [string first "\"results\"" $json]
+    return [FirstArrayObject $json results]
+}
+
+proc ::dZSbot::Modules::Music::Parser::FirstArrayObject {json key} {
+
+    set pos [string first "\"$key\"" $json]
     if {$pos < 0} {
         return ""
     }
@@ -96,6 +101,55 @@ proc ::dZSbot::Modules::Music::Parser::FirstResultObject {json} {
     return ""
 }
 
+proc ::dZSbot::Modules::Music::Parser::JsonObjectArrayNames {json key} {
+
+    return [JsonObjectArrayValues $json $key name]
+}
+
+proc ::dZSbot::Modules::Music::Parser::JsonObjectArrayValues {json key valueKey} {
+
+    set pos [string first "\"$key\"" $json]
+    if {$pos < 0} {
+        return {}
+    }
+
+    set start [string first "\[" $json $pos]
+    if {$start < 0} {
+        return {}
+    }
+
+    set end [string first "\]" $json $start]
+    if {$end < 0} {
+        return {}
+    }
+
+    set raw [string range $json $start $end]
+    set values {}
+    set pattern [format {"%s"[ \t\r\n]*:[ \t\r\n]*"((?:\\.|[^"\\])*)"} $valueKey]
+    foreach {match value} [regexp -all -inline $pattern $raw] {
+        lappend values [string map [list "\\\"" "\"" "\\/" "/" "\\n" "\n" "\\r" "\r" "\\t" "\t" "\\\\" "\\"] $value]
+    }
+
+    return $values
+}
+
+proc ::dZSbot::Modules::Music::Parser::ReleaseDict {source title year country catno url formats labels genres} {
+
+    return [dict create \
+        source $source \
+        title $title \
+        year $year \
+        country $country \
+        catno $catno \
+        uri "" \
+        url $url \
+        resource_url "" \
+        formats $formats \
+        labels $labels \
+        genres $genres \
+        styles {}]
+}
+
 proc ::dZSbot::Modules::Music::Parser::ParseDiscogsSearch {json} {
 
     set first [FirstResultObject $json]
@@ -104,6 +158,7 @@ proc ::dZSbot::Modules::Music::Parser::ParseDiscogsSearch {json} {
     }
 
     set release [dict create \
+        source Discogs \
         title [JsonGet $first title "Unknown"] \
         year [JsonGet $first year "N/A"] \
         country [JsonGet $first country "N/A"] \
@@ -114,6 +169,76 @@ proc ::dZSbot::Modules::Music::Parser::ParseDiscogsSearch {json} {
         labels [JsonArrayValues $first label] \
         genres [JsonArrayValues $first genre] \
         styles [JsonArrayValues $first style]]
+
+    return [dict create ok 1 release $release]
+}
+
+proc ::dZSbot::Modules::Music::Parser::ParseMusicBrainzReleaseSearch {json} {
+
+    set first [FirstArrayObject $json releases]
+    if {$first eq ""} {
+        return [dict create ok 0 error "no MusicBrainz results found"]
+    }
+
+    set id [JsonGet $first id ""]
+    set date [JsonGet $first date ""]
+    set year "N/A"
+    if {[regexp {^([12][09][0-9][0-9])} $date -> parsedYear]} {
+        set year $parsedYear
+    }
+
+    set title [JsonGet $first title "Unknown"]
+    set artist [lindex [JsonObjectArrayNames $first artist-credit] 0]
+    if {$artist ne "" && [string first $artist $title] < 0} {
+        set title "$artist - $title"
+    }
+
+    set labels [JsonObjectArrayNames $first label-info]
+    set formats [JsonObjectArrayValues $first media format]
+    set genres [JsonObjectArrayNames $first tags]
+    set url ""
+    if {$id ne ""} {
+        set url "https://musicbrainz.org/release/$id"
+    }
+
+    set release [ReleaseDict \
+        MusicBrainz \
+        $title \
+        $year \
+        [JsonGet $first country "N/A"] \
+        [JsonGet $first barcode "N/A"] \
+        $url \
+        $formats \
+        $labels \
+        $genres]
+
+    return [dict create ok 1 release $release]
+}
+
+proc ::dZSbot::Modules::Music::Parser::ParseLastFmAlbumSearch {json} {
+
+    set first [FirstArrayObject $json album]
+    if {$first eq ""} {
+        return [dict create ok 0 error "no Last.fm results found"]
+    }
+
+    set album [JsonGet $first name "Unknown"]
+    set artist [JsonGet $first artist ""]
+    set title $album
+    if {$artist ne ""} {
+        set title "$artist - $album"
+    }
+
+    set release [ReleaseDict \
+        Last.fm \
+        $title \
+        N/A \
+        N/A \
+        N/A \
+        [JsonGet $first url ""] \
+        {} \
+        [expr {$artist ne "" ? [list $artist] : {}}] \
+        {}]
 
     return [dict create ok 1 release $release]
 }

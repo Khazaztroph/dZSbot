@@ -80,6 +80,17 @@ proc ::dZSbot::Modules::IMDb::Lookup {query {type ""} {year ""}} {
     }
     set cached [::dZSbot::Modules::IMDb::Cache::Get $cacheKey $cacheTime]
 
+    if {$cached ne ""} {
+        if {[catch {
+            set parsed [::dZSbot::Modules::IMDb::Parser::ParseTitle $cached]
+        }] || ![dict get $parsed ok]} {
+            # Older versions cached OMDb "not found" responses. Discard them so
+            # the search fallback gets a chance to resolve the title.
+            ::dZSbot::Modules::IMDb::Cache::Delete $cacheKey
+            set cached ""
+        }
+    }
+
     if {$cached eq ""} {
         set fetched [::dZSbot::Modules::IMDb::OMDb::Fetch $query $type $year]
 
@@ -87,17 +98,20 @@ proc ::dZSbot::Modules::IMDb::Lookup {query {type ""} {year ""}} {
             return [dict create ok 0 error [dict get $fetched error]]
         }
 
-        set cached [::dZSbot::Modules::IMDb::Cache::Set $cacheKey [dict get $fetched data]]
-    }
+        set cached [dict get $fetched data]
 
-    if {[catch {
-        set parsed [::dZSbot::Modules::IMDb::Parser::ParseTitle $cached]
-    } error]} {
-        return [dict create ok 0 error "response parse failed"]
-    }
+        if {[catch {
+            set parsed [::dZSbot::Modules::IMDb::Parser::ParseTitle $cached]
+        }]} {
+            return [dict create ok 0 error "response parse failed"]
+        }
 
-    if {![dict get $parsed ok]} {
-        return [dict create ok 0 error [dict get $parsed error]]
+        if {![dict get $parsed ok]} {
+            return [dict create ok 0 error [dict get $parsed error]]
+        }
+
+        # Cache only successfully parsed title responses, never OMDb errors.
+        ::dZSbot::Modules::IMDb::Cache::Set $cacheKey $cached
     }
 
     set title [dict get $parsed title]
@@ -135,7 +149,7 @@ proc ::dZSbot::Modules::IMDb::OnSiteRelease {event payload} {
     set title [dict get $result title]
 
     ::dZSbot::Commands::Reply "" $preChan [::dZSbot::Modules::IMDb::Formatter::PublicLine $title $release]
-    ::dZSbot::Commands::Reply "" $staffChan "IMDb details for $release:"
+    ::dZSbot::Commands::Reply "" $staffChan [::dZSbot::Modules::IMDb::Formatter::DetailHeader $release $section]
 
     foreach line [dict get $result lines] {
         ::dZSbot::Commands::Reply "" $staffChan $line
@@ -188,7 +202,7 @@ proc ::dZSbot::Modules::IMDb::ParseReleaseName {release} {
 
     set words [split $name " "]
     set metadataIndex [llength $words]
-    set metadataPattern {^(480p|576p|720p|1080[pi]|2160p|4320p|uhd|xvid|divx|x26[45]|h[ .]?26[45]|hevc|av1|web|web-?dl|webrip|bluray|blu-?ray|b[dr]rip|dvd(?:rip)?|hd(?:tv|rip)|remux|cam|telesync|proper|repack|internal|limited|readnfo|multi|complete|s[0-9]{1,2}(?:e[0-9]{1,3})?|season|ddp?[0-9]*|eac3|ac3|aac|dts|truehd|atmos|flac|mp3)$}
+    set metadataPattern {^(480p|576p|720p|1080[pi]|2160p|4320p|uhd|xvid|divx|x26[45]|h[ .]?26[45]|hevc|av1|web|web-?dl|webrip|bluray|blu-?ray|b[dr]rip|dvd(?:rip)?|hd(?:tv|rip)|remux|cam|telesync|proper|repack|internal|limited|readnfo|multi|complete|nordic|swedish|danish|norwegian|finnish|icelandic|subbed|dubbed|dual|s[0-9]{1,2}(?:e[0-9]{1,3})?|season|ddp?[0-9]*|eac3|ac3|aac|dts|truehd|atmos|flac|mp3)$}
 
     for {set index 0} {$index < [llength $words]} {incr index} {
         if {[regexp -nocase $metadataPattern [lindex $words $index]]} {

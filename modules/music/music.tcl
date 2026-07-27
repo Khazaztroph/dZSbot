@@ -6,6 +6,8 @@ namespace eval ::dZSbot::Modules::Music {
 
 source [file join $::dZSbot::Root modules music parser.tcl]
 source [file join $::dZSbot::Root modules music formatter.tcl]
+source [file join $::dZSbot::Root modules music musicbrainz.tcl]
+source [file join $::dZSbot::Root modules music lastfm.tcl]
 source [file join $::dZSbot::Root modules music discogs.tcl]
 source [file join $::dZSbot::Root modules music mp3.tcl]
 source [file join $::dZSbot::Root modules music flac.tcl]
@@ -18,19 +20,62 @@ proc ::dZSbot::Modules::Music::Initialize {} {
 
 proc ::dZSbot::Modules::Music::Lookup {query {format ""}} {
 
-    set provider [string tolower [::dZSbot::Config::Get music.provider "discogs"]]
+    set errors {}
+
+    foreach provider [Providers] {
+        set result [LookupProvider $provider $query $format]
+        if {[dict get $result ok]} {
+            return $result
+        }
+
+        lappend errors "$provider: [dict get $result error]"
+    }
+
+    return [dict create ok 0 error [join $errors {; }]]
+}
+
+proc ::dZSbot::Modules::Music::Providers {} {
+
+    set providers [::dZSbot::Config::Get music.providers {}]
+    if {[llength $providers]} {
+        return [lmap provider $providers {string tolower $provider}]
+    }
+
+    set provider [string tolower [::dZSbot::Config::Get music.provider "musicbrainz"]]
+    if {$provider eq "auto"} {
+        return {musicbrainz lastfm discogs}
+    }
+
+    return [list $provider]
+}
+
+proc ::dZSbot::Modules::Music::LookupProvider {provider query format} {
 
     switch -exact -- $provider {
+        musicbrainz {
+            set fetched [::dZSbot::Modules::Music::MusicBrainz::Fetch $query $format]
+            if {![dict get $fetched ok]} {
+                return [dict create ok 0 error [dict get $fetched error]]
+            }
+            return [::dZSbot::Modules::Music::Parser::ParseMusicBrainzReleaseSearch [dict get $fetched data]]
+        }
+        lastfm -
+        last.fm {
+            set fetched [::dZSbot::Modules::Music::LastFm::Fetch $query $format]
+            if {![dict get $fetched ok]} {
+                return [dict create ok 0 error [dict get $fetched error]]
+            }
+            return [::dZSbot::Modules::Music::Parser::ParseLastFmAlbumSearch [dict get $fetched data]]
+        }
         discogs {
             set fetched [::dZSbot::Modules::Music::Discogs::Fetch $query $format]
             if {![dict get $fetched ok]} {
                 return [dict create ok 0 error [dict get $fetched error]]
             }
-
             return [::dZSbot::Modules::Music::Parser::ParseDiscogsSearch [dict get $fetched data]]
         }
         default {
-            return [dict create ok 0 error "Unknown music provider: $provider"]
+            return [dict create ok 0 error "Unknown music provider"]
         }
     }
 }
@@ -53,13 +98,13 @@ proc ::dZSbot::Modules::Music::CmdMusic {nick host hand chan text} {
         return
     }
 
-    ::dZSbot::Commands::Reply $nick $chan [::dZSbot::Modules::Music::Formatter::FormatDiscogsRelease [dict get $result release]]
+    ::dZSbot::Commands::Reply $nick $chan [::dZSbot::Modules::Music::Formatter::FormatRelease [dict get $result release]]
 }
 
 proc ::dZSbot::Modules::Music::CmdMusicStatus {nick host hand chan text} {
 
     variable SupportedFormats
-    ::dZSbot::Commands::Reply $nick $chan [::dZSbot::Modules::Music::Formatter::FormatStatus $SupportedFormats]
+    ::dZSbot::Commands::Reply $nick $chan [::dZSbot::Modules::Music::Formatter::FormatStatus $SupportedFormats [Providers]]
 }
 
 proc ::dZSbot::Modules::Music::OnSiteRelease {event payload} {
@@ -89,7 +134,7 @@ proc ::dZSbot::Modules::Music::OnSiteRelease {event payload} {
     set found [dict get $result release]
     ::dZSbot::Commands::Reply "" $preChan [::dZSbot::Modules::Music::Formatter::PublicLine $found $release [PreTag $payload] $section]
     ::dZSbot::Commands::Reply "" $staffChan "Music details for $release:"
-    ::dZSbot::Commands::Reply "" $staffChan [::dZSbot::Modules::Music::Formatter::FormatDiscogsRelease $found]
+    ::dZSbot::Commands::Reply "" $staffChan [::dZSbot::Modules::Music::Formatter::FormatRelease $found]
 }
 
 proc ::dZSbot::Modules::Music::PreTag {payload} {
@@ -134,7 +179,7 @@ proc ::dZSbot::Modules::Music::DictGet {dictValue key default} {
 ::dZSbot::Modules::Music::Initialize
 ::dZSbot::ModuleManager::Register music [dict create \
     version $::dZSbot::Modules::Music::Version \
-    provider [::dZSbot::Config::Get music.provider "discogs"] \
+    providers [::dZSbot::Modules::Music::Providers] \
     description "Music lookup module for MP3, FLAC, and future formats" \
     formats $::dZSbot::Modules::Music::SupportedFormats \
     commands [::dZSbot::Commands::List music]]

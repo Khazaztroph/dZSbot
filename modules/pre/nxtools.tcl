@@ -82,7 +82,7 @@ proc ::dZSbot::Modules::Pre::NxTools::ImportPres {{path ""} {limit ""}} {
     set imported 0
     set skipped 0
     set failed 0
-    set checkDuplicates [expr {[::dZSbot::Modules::Pre::Store::Backend] ne "mysql"}]
+    set seen {}
     set sql "SELECT TimeStamp, UserName, GroupName, Area, Release, Files, Size FROM Pres ORDER BY TimeStamp ASC"
     if {[string is integer -strict $limit] && $limit > 0} {
         append sql " LIMIT $limit"
@@ -96,15 +96,23 @@ proc ::dZSbot::Modules::Pre::NxTools::ImportPres {{path ""} {limit ""}} {
                 continue
             }
 
-            if {$checkDuplicates} {
-                set known 0
-                if {[catch {set known [::dZSbot::Modules::Pre::AlreadyKnown $release]} knownError]} {
-                    ::dZSbot::Logger::Warn "PRE import duplicate check failed for '$release': $knownError"
-                }
-                if {$known} {
-                    incr skipped
-                    continue
-                }
+            set releaseKey [string tolower [string trim $release]]
+            if {[dict exists $seen $releaseKey]} {
+                incr skipped
+                continue
+            }
+            dict set seen $releaseKey 1
+
+            if {[catch {
+                set known [::dZSbot::Modules::Pre::Store::Exists $release]
+            } knownError]} {
+                ::dZSbot::Logger::Warn "PRE import duplicate check failed for '$release': $knownError"
+                incr failed
+                continue
+            }
+            if {$known} {
+                incr skipped
+                continue
             }
 
             set entry [dict create \

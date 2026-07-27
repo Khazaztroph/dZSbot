@@ -34,33 +34,57 @@ proc ::dZSbot::Modules::IMDb::Formatter::MovieLines {movie} {
     set bar [RatingBar $rating]
     set url "https://www.imdb.com/title/$imdbid/"
     set label "Movie"
+    set section MOVIES
+    set summary $runtime
 
     if {$type eq "series"} {
         set label "TV Series"
+        set section TV
+        if {$seasons ne "N/A"} {
+            set summary "$seasons seasons"
+        }
     } elseif {$type ne "" && $type ne "n/a"} {
         set label [string totitle $type]
     }
 
-    set lines {}
-    if {$type eq "series" && $seasons ne "N/A"} {
-        lappend lines "\002$title\002 ($year) | $label | $seasons seasons"
-    } else {
-        lappend lines "\002$title\002 ($year) | $label | $runtime"
-    }
-    lappend lines "Genre: $genre"
-
-    if {$bar eq ""} {
-        lappend lines "IMDb: $rating/10 ($votes votes)"
-    } else {
-        lappend lines "IMDb: $rating/10 $bar ($votes votes)"
+    set barSuffix ""
+    if {$bar ne ""} {
+        set barSuffix " $bar"
     }
 
-    lappend lines "Director: $director"
-    lappend lines "Actors: $actors"
-    lappend lines "Plot: $plot"
-    lappend lines $url
+    set values [dict create \
+        section $section \
+        title $title \
+        year $year \
+        label $label \
+        summary $summary \
+        genre $genre \
+        rating $rating \
+        votes $votes \
+        bar $bar \
+        bar_suffix $barSuffix \
+        director $director \
+        actors $actors \
+        plot $plot \
+        url $url]
+
+    set lines [list \
+        [::dZSbot::Theme::Render imdb.detail.title $values {%bold{{title}} ({year}) | {label} | {summary}}] \
+        [::dZSbot::Theme::Render imdb.detail.genre $values {Genre: {genre}}] \
+        [::dZSbot::Theme::Render imdb.detail.rating $values {IMDb: {rating}/10{bar_suffix} ({votes} votes)}] \
+        [::dZSbot::Theme::Render imdb.detail.director $values {Director: {director}}] \
+        [::dZSbot::Theme::Render imdb.detail.actors $values {Actors: {actors}}] \
+        [::dZSbot::Theme::Render imdb.detail.plot $values {Plot: {plot}}] \
+        [::dZSbot::Theme::Render imdb.detail.url $values {{url}}]]
 
     return $lines
+}
+
+proc ::dZSbot::Modules::IMDb::Formatter::DetailHeader {release {section "MOVIES"}} {
+
+    return [::dZSbot::Theme::Render imdb.detail.header [dict create \
+        section $section \
+        release $release] {IMDb details for {release}:}]
 }
 
 proc ::dZSbot::Modules::IMDb::Formatter::PublicLine {title {release ""}} {

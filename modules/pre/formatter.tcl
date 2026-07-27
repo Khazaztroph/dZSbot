@@ -69,7 +69,15 @@ proc ::dZSbot::Modules::Pre::Formatter::Line {row {index ""}} {
         set prefix "PRE #$index"
     }
 
-    return "$prefix: $release | $section | $age ago | $user/$group | $size | ${files}F"
+    return [::dZSbot::Theme::Render pre.result [dict create \
+        section $section \
+        prefix $prefix \
+        release $release \
+        age $age \
+        user $user \
+        group $group \
+        size $size \
+        files $files] {{prefix}: {release} | {section} | {age} ago | {user}/{group} | {size} | {files}F}]
 }
 
 proc ::dZSbot::Modules::Pre::Formatter::PublicLine {payload} {
@@ -90,6 +98,30 @@ proc ::dZSbot::Modules::Pre::Formatter::PublicLine {payload} {
         size $size]]
 }
 
+proc ::dZSbot::Modules::Pre::Formatter::AnnounceLine {payload} {
+
+    set style [string tolower [::dZSbot::Config::Get pre.announce.style "classic"]]
+
+    if {$style eq "theme"} {
+        return [PublicLine $payload]
+    }
+
+    set preType [DictGet $payload pre_type "PRE"]
+    set release [DictGet $payload release [DictGet $payload relname ""]]
+    set section [string toupper [DictGet $payload section "UNKNOWN"]]
+    set group [DictGet $payload group "UNKNOWN"]
+    set files [DictGet $payload files "0"]
+    set size [Size [DictGet $payload size ""]]
+
+    return [::dZSbot::Theme::Render pre.announce.classic [dict create \
+        section $section \
+        pre_type $preType \
+        release $release \
+        group $group \
+        files $files \
+        size $size] {{pre_type}: {release} | {section} | {group} | {files}F/{size}}]
+}
+
 proc ::dZSbot::Modules::Pre::Formatter::DictGet {dictValue key default} {
 
     if {[catch {dict exists $dictValue $key} exists] || !$exists} {
@@ -105,14 +137,15 @@ proc ::dZSbot::Modules::Pre::Formatter::StatsHeader {hours totals} {
     set files [dict get $totals files]
     set size [Size [dict get $totals size]]
 
-    return "PRE Daily Stats: last ${hours}h | $releases releases | ${files}F | $size"
+    return [::dZSbot::Theme::Render pre.stats.header [dict create \
+        section PRE \
+        hours $hours \
+        releases $releases \
+        files $files \
+        size $size] {PRE Daily Stats: last {hours}h | {releases} releases | {files}F | {size}}]
 }
 
 proc ::dZSbot::Modules::Pre::Formatter::StatsTopLine {label rows} {
-
-    if {![llength $rows]} {
-        return "PRE Top $label: no data"
-    }
 
     set parts {}
     set index 0
@@ -122,14 +155,27 @@ proc ::dZSbot::Modules::Pre::Formatter::StatsTopLine {label rows} {
         lappend parts "#$index [dict get $row name] ([dict get $row count])"
     }
 
-    return "PRE Top $label: [join $parts { | }]"
+    set entries [join $parts { | }]
+    if {$entries eq ""} {
+        set entries "no data"
+    }
+
+    return [::dZSbot::Theme::Render pre.stats.top [dict create \
+        section PRE \
+        label $label \
+        entries $entries] {PRE Top {label}: {entries}}]
 }
 
 proc ::dZSbot::Modules::Pre::Formatter::ActivityLine {section release delay sample} {
 
-    if {![dict get $sample available]} {
-        return "PRE-BW: \[$section\] $release | ${delay}s: N/A"
+    set activity "N/A"
+    if {[dict get $sample available]} {
+        set activity "[dict get $sample users]@[Speed [dict get $sample speed]]"
     }
 
-    return "PRE-BW: \[$section\] $release | ${delay}s: [dict get $sample users]@[Speed [dict get $sample speed]]"
+    return [::dZSbot::Theme::Render pre.activity [dict create \
+        section $section \
+        release $release \
+        delay $delay \
+        activity $activity] {PRE-BW: [{section}] {release} | {delay}s: {activity}}]
 }

@@ -8,6 +8,7 @@ source [file join $::dZSbot::Root modules pre store.tcl]
 source [file join $::dZSbot::Root modules pre mysqlstore.tcl]
 source [file join $::dZSbot::Root modules pre formatter.tcl]
 source [file join $::dZSbot::Root modules pre nxtools.tcl]
+source [file join $::dZSbot::Root modules pre remote.tcl]
 
 ::dZSbot::Modules::Pre::Store::Ready
 
@@ -53,7 +54,7 @@ proc ::dZSbot::Modules::Pre::MaybeAnnouncePre {payload} {
         return 0
     }
 
-    if {[DictGet $payload source ""] ne "nxPre"} {
+    if {![SourceAllowed [DictGet $payload source ""]]} {
         return 0
     }
 
@@ -63,8 +64,19 @@ proc ::dZSbot::Modules::Pre::MaybeAnnouncePre {payload} {
     }
 
     set channel [::dZSbot::Config::Get pre.announce.channel "#pre"]
-    ::dZSbot::Commands::Reply "" $channel [::dZSbot::Modules::Pre::Formatter::PublicLine $payload]
+    ::dZSbot::Commands::Reply "" $channel [::dZSbot::Modules::Pre::Formatter::AnnounceLine $payload]
     return 1
+}
+
+proc ::dZSbot::Modules::Pre::SourceAllowed {source} {
+
+    foreach allowed [::dZSbot::Config::Get pre.announce.sources {nxPre}] {
+        if {[string equal -nocase $allowed $source]} {
+            return 1
+        }
+    }
+
+    return 0
 }
 
 proc ::dZSbot::Modules::Pre::SectionAllowed {section} {
@@ -122,7 +134,15 @@ proc ::dZSbot::Modules::Pre::MaybeStartActivity {payload} {
 proc ::dZSbot::Modules::Pre::AnnounceActivity {payload delay} {
 
     set channel [::dZSbot::Config::Get pre.activity.channel "#pre"]
-    set sample [ActivitySample]
+    set sample [ActivitySample $payload]
+
+    if {![dict get $sample available] && ![::dZSbot::Config::Get pre.activity.announce_when_unavailable 0]} {
+        return 0
+    }
+    if {[dict get $sample available] && [dict get $sample users] == 0 && [::dZSbot::Config::Get pre.activity.suppress_idle 1]} {
+        return 0
+    }
+
     set line [::dZSbot::Modules::Pre::Formatter::ActivityLine \
         [DictGet $payload section "UNKNOWN"] \
         [DictGet $payload release ""] \
@@ -130,9 +150,10 @@ proc ::dZSbot::Modules::Pre::AnnounceActivity {payload delay} {
         $sample]
 
     ::dZSbot::Commands::Reply "" $channel $line
+    return 1
 }
 
-proc ::dZSbot::Modules::Pre::ActivitySample {} {
+proc ::dZSbot::Modules::Pre::ActivitySample {{payload {}}} {
 
     if {![llength [info commands ::ioftpd]]} {
         return [dict create available 0 users 0 speed 0 error "ioftpd command unavailable"]
@@ -154,26 +175,55 @@ proc ::dZSbot::Modules::Pre::ActivitySample {} {
             break
         }
 
-        if {$status == 1} {
-            incr users
-            if {[string is double -strict $userSpeed]} {
-                set speed [expr {$speed + $userSpeed}]
-            }
+        if {$status ne "1"} {
+            continue
+        }
+        if {[::dZSbot::Config::Get pre.activity.only_release 1] && ![ActivityPathMatches $vpath $payload]} {
+            continue
+        }
+
+        incr users
+        if {[string is double -strict $userSpeed]} {
+            set speed [expr {$speed + $userSpeed}]
         }
     }
 
     return [dict create available 1 users $users speed $speed error ""]
 }
 
-proc ::dZSbot::Modules::Pre::AlreadyKnown {release} {
+proc ::dZSbot::Modules::Pre::ActivityPathMatches {vpath payload} {
 
-    foreach row [::dZSbot::Modules::Pre::Store::SearchEntries $release 10] {
-        if {[string equal -nocase [dict get $row relname] $release]} {
+    if {$payload eq ""} {
+        return 1
+    }
+
+    set normalizedVpath [string toupper [string map [list "\\" "/"] [string trimright $vpath "/\\"]]]
+    set targetPath [DictGet $payload path ""]
+
+    if {$targetPath ne ""} {
+        set normalizedTarget [string toupper [string map [list "\\" "/"] [string trimright $targetPath "/\\"]]]
+        if {$normalizedVpath eq $normalizedTarget || [string first "${normalizedTarget}/" $normalizedVpath] == 0} {
+            return 1
+        }
+    }
+
+    set release [string toupper [DictGet $payload release [DictGet $payload relname ""]]]
+    if {$release eq ""} {
+        return 0
+    }
+
+    foreach part [split $normalizedVpath "/"] {
+        if {$part eq $release} {
             return 1
         }
     }
 
     return 0
+}
+
+proc ::dZSbot::Modules::Pre::AlreadyKnown {release} {
+
+    return [::dZSbot::Modules::Pre::Store::Exists $release]
 }
 
 proc ::dZSbot::Modules::Pre::DictGet {dictValue key default} {
@@ -192,12 +242,21 @@ proc ::dZSbot::Modules::Pre::CmdPre {nick host hand chan text} {
     set rows [::dZSbot::Modules::Pre::Store::SearchEntries $query $limit]
 
     if {![llength $rows]} {
-        if {$query eq ""} {
-            ::dZSbot::Commands::Reply $nick $chan "PRE: database is empty."
-        } else {
-            ::dZSbot::Commands::Reply $nick $chan "PRE: no match for '$query'"
+        set remote [::dZSbot::Modules::Pre::Remote::Search $query $limit]
+        if {[dict get $remote ok]} {
+            set rows [dict get $remote rows]
+        } elseif {![DictGet $remote disabled 0]} {
+            ::dZSbot::Logger::Warn "PreDB fallback failed: [dict get $remote error]"
         }
-        return
+
+        if {![llength $rows]} {
+            if {$query eq ""} {
+                ::dZSbot::Commands::Reply $nick $chan "PRE: database is empty."
+            } else {
+                ::dZSbot::Commands::Reply $nick $chan "PRE: no match for '$query'"
+            }
+            return
+        }
     }
 
     set index 0
@@ -234,10 +293,54 @@ proc ::dZSbot::Modules::Pre::CmdAddPre {nick host hand chan text} {
 proc ::dZSbot::Modules::Pre::CmdPres {nick host hand chan text} {
 
     set limit [::dZSbot::Config::Get pre.pres_limit 10]
-    set rows [::dZSbot::Modules::Pre::Store::SearchEntries "" $limit]
+    set replyTarget [PresReplyTarget $nick $chan]
+
+    if {[catch {set rows [::dZSbot::Modules::Pre::Store::LatestEntries $limit]} error]} {
+        ::dZSbot::Logger::Error "PRE latest lookup failed: $error"
+        ::dZSbot::Commands::Reply $nick $replyTarget "PRE: failed to read latest releases."
+        return
+    }
 
     if {![llength $rows]} {
-        ::dZSbot::Commands::Reply $nick $chan "PRE: database is empty."
+        ::dZSbot::Commands::Reply $nick $replyTarget "PRE: database is empty."
+        return
+    }
+
+    set index 0
+    foreach row $rows {
+        incr index
+        if {[catch {set line [::dZSbot::Modules::Pre::Formatter::Line $row $index]} error]} {
+            ::dZSbot::Logger::Warn "PRE latest row format failed: $error"
+            continue
+        }
+        ::dZSbot::Commands::Reply $nick $replyTarget $line
+    }
+}
+
+proc ::dZSbot::Modules::Pre::CmdPreDB {nick host hand chan text} {
+
+    set query [string trim $text]
+    if {$query eq ""} {
+        ::dZSbot::Commands::Reply $nick $chan "Usage: !predb <release>"
+        return
+    }
+
+    set limit [::dZSbot::Config::Get pre.remote.search_limit [::dZSbot::Config::Get pre.search_limit 5]]
+    set result [::dZSbot::Modules::Pre::Remote::Search $query $limit]
+
+    if {![dict get $result ok]} {
+        if {[DictGet $result disabled 0]} {
+            ::dZSbot::Commands::Reply $nick $chan "PreDB.net lookup is disabled."
+        } else {
+            ::dZSbot::Logger::Warn "PreDB lookup failed: [dict get $result error]"
+            ::dZSbot::Commands::Reply $nick $chan "PreDB.net lookup failed."
+        }
+        return
+    }
+
+    set rows [dict get $result rows]
+    if {![llength $rows]} {
+        ::dZSbot::Commands::Reply $nick $chan "PreDB.net: no match for '$query'"
         return
     }
 
@@ -246,6 +349,17 @@ proc ::dZSbot::Modules::Pre::CmdPres {nick host hand chan text} {
         incr index
         ::dZSbot::Commands::Reply $nick $chan [::dZSbot::Modules::Pre::Formatter::Line $row $index]
     }
+}
+
+proc ::dZSbot::Modules::Pre::PresReplyTarget {nick chan} {
+
+    set target [string tolower [::dZSbot::Config::Get pre.pres.reply_target "channel"]]
+
+    if {$target in {private privmsg pm query nick user} && $nick ne ""} {
+        return $nick
+    }
+
+    return $chan
 }
 
 proc ::dZSbot::Modules::Pre::CmdPreImport {nick host hand chan text} {
@@ -459,6 +573,7 @@ proc ::dZSbot::Modules::Pre::SecondsUntilTime {hhmm} {
 }
 
 ::dZSbot::Commands::Register pre !pre ::dZSbot::Modules::Pre::CmdPre "Search PRE database"
+::dZSbot::Commands::Register pre !predb ::dZSbot::Modules::Pre::CmdPreDB "Search PreDB.net"
 ::dZSbot::Commands::Register pre !pres ::dZSbot::Modules::Pre::CmdPres "Show latest PRE entries"
 ::dZSbot::Commands::Register pre !addpre ::dZSbot::Modules::Pre::CmdAddPre "Add PRE entry"
 ::dZSbot::Commands::Register pre !preimport ::dZSbot::Modules::Pre::CmdPreImport "Import PRE entries"
