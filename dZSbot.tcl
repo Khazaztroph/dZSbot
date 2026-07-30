@@ -64,6 +64,10 @@ source [file join $::dZSbot::Root core theme.tcl]
 source [file join $::dZSbot::Root core commands.tcl]
 source [file join $::dZSbot::Root core transport.tcl]
 source [file join $::dZSbot::Root core siteadapter.tcl]
+foreach ::dZSbot::AdapterFile [lsort [glob -nocomplain [file join $::dZSbot::Root core adapters *.tcl]]] {
+    source $::dZSbot::AdapterFile
+}
+unset -nocomplain ::dZSbot::AdapterFile
 source [file join $::dZSbot::Root core modulemanager.tcl]
 source [file join $::dZSbot::Root core updatecheck.tcl]
 source [file join $::dZSbot::Root core bootstrap.tcl]

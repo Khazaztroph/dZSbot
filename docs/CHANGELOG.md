@@ -1,3 +1,13 @@
+## 2.0.9 - 2026-07-30
+
+- Improved IMDb upload parsing for `Custom` and regional subtitle tags.
+- Added possessive-title and yearless OMDb search retries for scene names that
+  omit apostrophes, such as `The.Devils.Mouth.2026`.
+- Added an initial disabled FluxFTP HTTP API adapter under
+  `core/adapters/fluxftp.tcl`, with configuration, tests and documentation.
+- Added the approved dZSbot v2 logo variants in PNG and transparent ICO
+  formats for Discord and future ioFTPD releases.
+
 ## 2.0.8 - 2026-07-27
 
 - Fixed `!preimport nxtools` duplicate handling for MySQL by checking exact

@@ -8,8 +8,8 @@ proc utimer {delay callback} {
 
 source [file join $root dZSbot.tcl]
 
-if {[::dZSbot::UpdateCheck::CompareVersions v2.0.8 2.0.7] != 1} {
-    error "Expected v2.0.8 to be newer than 2.0.7"
+if {[::dZSbot::UpdateCheck::CompareVersions v2.0.9 2.0.8] != 1} {
+    error "Expected v2.0.9 to be newer than 2.0.8"
 }
 if {[::dZSbot::UpdateCheck::CompareVersions 2.0.7 2.0.7] != 0} {
     error "Expected equal versions"

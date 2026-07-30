@@ -36,6 +36,20 @@ Recommended model:
 - Event source: API/log relay.
 - Command transport: HTTPS API or FTPS if exposed.
 
+## FluxFTP
+
+FluxFTP starts as a disabled HTTP API adapter in
+`core/adapters/fluxftp.tcl`. It is configured through
+`config/adapters/fluxftp.conf`:
+
+```tcl
+::dZSbot::Config::Set fluxftp.enabled 0
+::dZSbot::Config::Set fluxftp.base_url "http://127.0.0.1:port/api"
+```
+
+The same `base_url` setting is used for local and remote FluxFTP APIs. See
+`docs/FLUXFTP.md` for endpoint mapping and PRE sync policy.
+
 ## TLS Policy
 
 Configured in `config/dzsbot.conf`:

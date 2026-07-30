@@ -72,17 +72,28 @@ proc ::dZSbot::Modules::IMDb::OMDb::Fetch {query {type ""} {year ""}} {
         return $fetched
     }
 
-    set searched [Request [BuildSearchUrl $endpoint $apiKey $query $type $year] $timeout]
-    if {![dict get $searched ok]} {
-        return $searched
+    set searchYears [list $year]
+    if {$year ne ""} {
+        lappend searchYears ""
     }
 
-    set imdbId [SelectSearchResult [dict get $searched data] $query $type $year]
-    if {$imdbId eq ""} {
-        return $fetched
+    foreach searchYear $searchYears {
+        foreach searchQuery [SearchVariants $query] {
+            set searched [Request [BuildSearchUrl \
+                $endpoint $apiKey $searchQuery $type $searchYear] $timeout]
+            if {![dict get $searched ok]} {
+                return $searched
+            }
+
+            set imdbId [SelectSearchResult \
+                [dict get $searched data] $query $type $year]
+            if {$imdbId ne ""} {
+                return [Request [BuildUrl $endpoint $apiKey $imdbId] $timeout]
+            }
+        }
     }
 
-    return [Request [BuildUrl $endpoint $apiKey $imdbId] $timeout]
+    return $fetched
 }
 
 proc ::dZSbot::Modules::IMDb::OMDb::Request {url timeout} {
@@ -122,6 +133,31 @@ proc ::dZSbot::Modules::IMDb::OMDb::NormalizeTitle {title} {
     set normalized [string tolower [string trim $title]]
     regsub -all {[^[:alnum:]]+} $normalized "" normalized
     return $normalized
+}
+
+proc ::dZSbot::Modules::IMDb::OMDb::SearchVariants {query} {
+
+    set variants [list $query]
+    set words [split $query " "]
+
+    # Scene release names omit apostrophes. Try one possessive restoration at a
+    # time, for example "The Devils Mouth" -> "The Devil's Mouth".
+    for {set index 0} {$index < [expr {[llength $words] - 1}]} {incr index} {
+        set word [lindex $words $index]
+        if {![regexp -nocase {^[[:alpha:]]{5,}s$} $word]} {
+            continue
+        }
+
+        set variantWords $words
+        regsub -nocase {s$} $word {'s} possessive
+        lset variantWords $index $possessive
+        set variant [join $variantWords " "]
+        if {[lsearch -exact $variants $variant] < 0} {
+            lappend variants $variant
+        }
+    }
+
+    return $variants
 }
 
 proc ::dZSbot::Modules::IMDb::OMDb::SelectSearchResult {json query {type ""} {year ""}} {

@@ -31,6 +31,7 @@ Use `eggdrop.exe -m eggdrop.conf` only when creating a fresh Eggdrop userfile.
 - [Configuration](docs/CONFIGURATION.md)
 - [Commands](docs/COMMANDS.md)
 - [Database](docs/DATABASE.md)
+- [FluxFTP Adapter](docs/FLUXFTP.md)
 - [PRE](docs/PRE.md)
 - [Requests](docs/REQUESTS.md)
 - [Site Adapters](docs/SITE_ADAPTERS.md)

@@ -202,7 +202,7 @@ proc ::dZSbot::Modules::IMDb::ParseReleaseName {release} {
 
     set words [split $name " "]
     set metadataIndex [llength $words]
-    set metadataPattern {^(480p|576p|720p|1080[pi]|2160p|4320p|uhd|xvid|divx|x26[45]|h[ .]?26[45]|hevc|av1|web|web-?dl|webrip|bluray|blu-?ray|b[dr]rip|dvd(?:rip)?|hd(?:tv|rip)|remux|cam|telesync|proper|repack|internal|limited|readnfo|multi|complete|nordic|swedish|danish|norwegian|finnish|icelandic|subbed|dubbed|dual|s[0-9]{1,2}(?:e[0-9]{1,3})?|season|ddp?[0-9]*|eac3|ac3|aac|dts|truehd|atmos|flac|mp3)$}
+    set metadataPattern {^(480p|576p|720p|1080[pi]|2160p|4320p|uhd|xvid|divx|x26[45]|h[ .]?26[45]|hevc|av1|web|web-?dl|webrip|bluray|blu-?ray|b[dr]rip|dvd(?:rip)?|hd(?:tv|rip)|remux|cam|telesync|proper|repack|internal|limited|readnfo|multi|complete|custom|nordic|swedish|danish|norwegian|finnish|icelandic|(?:dk|se|no|fi|is|swe|dan|nor|fin)subs|subbed|dubbed|dual|s[0-9]{1,2}(?:e[0-9]{1,3})?|season|ddp?[0-9]*|eac3|ac3|aac|dts|truehd|atmos|flac|mp3)$}
 
     for {set index 0} {$index < [llength $words]} {incr index} {
         if {[regexp -nocase $metadataPattern [lindex $words $index]]} {

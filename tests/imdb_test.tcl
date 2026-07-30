@@ -89,6 +89,22 @@ if {[dict get $badBoyRelease title] ne "Bad Boy in Love" || [dict get $badBoyRel
     error "Unexpected parsed Bad Boy in Love release: $badBoyRelease"
 }
 
+set troubleManRelease [::dZSbot::Modules::IMDb::ParseReleaseName {Trouble.Man.2025.Custom.DKSubs.1080p.BluRay.x265-EGEN}]
+if {[dict get $troubleManRelease title] ne "Trouble Man" || [dict get $troubleManRelease year] ne "2025"} {
+    error "Unexpected parsed Trouble Man release: $troubleManRelease"
+}
+
+set devilsMouthRelease [::dZSbot::Modules::IMDb::ParseReleaseName {The.Devils.Mouth.2026.NORDiC.1080p.WEB.h264-PANDEMONiUM}]
+if {[dict get $devilsMouthRelease title] ne "The Devils Mouth" || [dict get $devilsMouthRelease year] ne "2026"} {
+    error "Unexpected parsed The Devils Mouth release: $devilsMouthRelease"
+}
+
+set devilsMouthVariants [::dZSbot::Modules::IMDb::OMDb::SearchVariants \
+    [dict get $devilsMouthRelease title]]
+if {[lsearch -exact $devilsMouthVariants "The Devil's Mouth"] < 0} {
+    error "Expected a possessive OMDb search variant: $devilsMouthVariants"
+}
+
 set searchUrl [::dZSbot::Modules::IMDb::OMDb::BuildSearchUrl \
     "https://www.omdbapi.com/" \
     "KEY" \
@@ -150,6 +166,37 @@ if {[llength $::fallbackUrls] != 3} {
     error "Expected three OMDb requests during fallback, got: $::fallbackUrls"
 }
 
+set devilsMouthSearchResponse {{"Search":[{"Title":"The Devil's Mouth","Year":"2026","imdbID":"tt36958312","Type":"movie","Poster":"N/A"}],"totalResults":"1","Response":"True"}}
+::dZSbot::Config::Set omdb.api_key KEY
+::dZSbot::Config::Set omdb.endpoint http://example.test/
+set ::possessiveFallbackUrls {}
+rename ::dZSbot::Modules::IMDb::OMDb::Request ::dZSbot::Modules::IMDb::OMDb::RequestReal
+proc ::dZSbot::Modules::IMDb::OMDb::Request {url timeout} {
+    lappend ::possessiveFallbackUrls $url
+    if {[string first "i=tt36958312" $url] >= 0} {
+        return [dict create ok 1 data $::sample]
+    }
+    if {[string first "s=The%20Devil%27s%20Mouth" $url] >= 0} {
+        return [dict create ok 1 data $::devilsMouthSearchResponse]
+    }
+    if {[string first "t=The%20Devils%20Mouth" $url] >= 0 ||
+        [string first "s=The%20Devils%20Mouth" $url] >= 0} {
+        return [dict create ok 1 data $::notFoundResponse]
+    }
+    return [dict create ok 0 error "Unexpected possessive fallback URL: $url"]
+}
+set possessiveFallbackResult [::dZSbot::Modules::IMDb::OMDb::Fetch \
+    "The Devils Mouth" movie 2026]
+rename ::dZSbot::Modules::IMDb::OMDb::Request {}
+rename ::dZSbot::Modules::IMDb::OMDb::RequestReal ::dZSbot::Modules::IMDb::OMDb::Request
+::dZSbot::Config::Set omdb.api_key ""
+::dZSbot::Config::Set omdb.endpoint https://www.omdbapi.com/
+
+if {![dict get $possessiveFallbackResult ok] ||
+    [llength $::possessiveFallbackUrls] != 4} {
+    error "Expected possessive OMDb fallback to resolve tt36958312: $::possessiveFallbackUrls"
+}
+
 set cacheRetryKey "movie:Bad Boy in Love:2024"
 ::dZSbot::Modules::IMDb::Cache::Set $cacheRetryKey $notFoundResponse
 set ::cacheRetryFetches 0
@@ -168,17 +215,28 @@ if {![dict get $cacheRetryResult ok] || $::cacheRetryFetches != 1} {
 
 rename ::dZSbot::Modules::IMDb::Lookup ::dZSbot::Modules::IMDb::LookupReal
 proc ::dZSbot::Modules::IMDb::Lookup {query {type ""} {year ""}} {
-    set ::newUploadLookup [list $query $type $year]
+    lappend ::newUploadLookups [list $query $type $year]
     return [dict create ok 1 title [dict get $::parsed title] lines {}]
 }
+set ::newUploadLookups {}
 ::dZSbot::Modules::IMDb::OnSiteRelease site.newdir [dict create \
     section MOVIES \
     release {Zodiac.2007.NORDiC.1080p.BluRay.x264-RAPiDCOWS}]
+::dZSbot::Modules::IMDb::OnSiteRelease site.newdir [dict create \
+    section MOVIES \
+    release {Trouble.Man.2025.Custom.DKSubs.1080p.BluRay.x265-EGEN}]
+::dZSbot::Modules::IMDb::OnSiteRelease site.newdir [dict create \
+    section MOVIES \
+    release {The.Devils.Mouth.2026.NORDiC.1080p.WEB.h264-PANDEMONiUM}]
 rename ::dZSbot::Modules::IMDb::Lookup {}
 rename ::dZSbot::Modules::IMDb::LookupReal ::dZSbot::Modules::IMDb::Lookup
 
-if {$::newUploadLookup ne [list "Zodiac" "" "2007"]} {
-    error "NEW upload used unexpected OMDb lookup arguments: $::newUploadLookup"
+set expectedUploadLookups [list \
+    [list "Zodiac" "" "2007"] \
+    [list "Trouble Man" "" "2025"] \
+    [list "The Devils Mouth" "" "2026"]]
+if {$::newUploadLookups ne $expectedUploadLookups} {
+    error "NEW uploads used unexpected OMDb lookup arguments: $::newUploadLookups"
 }
 
 puts "Parsed NEW release: $movieRelease"
