@@ -22,7 +22,7 @@ Default config:
 
 ```tcl
 ::dZSbot::Config::Set fluxftp.enabled 0
-::dZSbot::Config::Set fluxftp.base_url "http://127.0.0.1:port/api"
+::dZSbot::Config::Set fluxftp.base_url "http://127.0.0.1:port"
 ::dZSbot::Config::Set fluxftp.api_key ""
 ::dZSbot::Config::Set fluxftp.auth_header "Authorization"
 ::dZSbot::Config::Set fluxftp.auth_scheme "Bearer"
@@ -33,8 +33,15 @@ Default config:
 Local and remote API usage share the same setting:
 
 ```tcl
-::dZSbot::Config::Set fluxftp.base_url "http://127.0.0.1:8080/api"
+::dZSbot::Config::Set fluxftp.base_url "http://127.0.0.1:8080"
 ::dZSbot::Config::Set fluxftp.base_url "https://fluxftp.example.net/api"
+```
+
+For CBFTP-compatible APIs such as RaceTrade/FluxFTP on port `55477`, the API
+root is normally the port itself, not `/api`:
+
+```tcl
+::dZSbot::Config::Set fluxftp.base_url "https://127.0.0.1:55477"
 ```
 
 Endpoint paths are configurable until the final FluxFTP API shape is confirmed:
@@ -66,7 +73,7 @@ wire format.
 
 ## PRE Strategy
 
-PRE remains owned by dZSbot MySQL/TSV for now:
+PRE remains owned by dZSbot MySQL/TSV by default:
 
 ```tcl
 ::dZSbot::Config::Set pre.backend "mysql"
@@ -74,18 +81,44 @@ PRE remains owned by dZSbot MySQL/TSV for now:
 ::dZSbot::Config::Set pre.fluxftp.mode "off"
 ```
 
-Future modes:
+Supported modes:
 
 ```text
 off
 read
-write
 sync
 primary
 ```
 
-Start with `read` or `write` after FluxFTP PRE endpoints are tested. Avoid
-`primary` until the API has been proven stable in production.
+Use `read` to keep dZSbot local/MySQL-first and query FluxFTP only when the
+local PRE database has no match:
+
+```tcl
+::dZSbot::Config::Set pre.fluxftp.enabled 1
+::dZSbot::Config::Set pre.fluxftp.mode "read"
+```
+
+Use `primary` only when FluxFTP should be searched before the local PRE store.
+The legacy value `on` is accepted as a read-mode alias.
+
+## !bw And !df Through FluxFTP
+
+The site commands can read directly from FluxFTP:
+
+```tcl
+::dZSbot::Config::Set site.commands.bw.source "fluxftp"
+::dZSbot::Config::Set site.commands.df.source "fluxftp"
+```
+
+Both commands keep cache fallback enabled by default:
+
+```tcl
+::dZSbot::Config::Set site.commands.bw.fallback "cache"
+::dZSbot::Config::Set site.commands.df.fallback "cache"
+```
+
+That gives a good production setup: FluxFTP is used when available, and the
+existing ioFTPD/cache exporters can still answer if the API is down.
 
 ## Expected API Shape
 
@@ -105,5 +138,4 @@ POST /pre
 ```
 
 Once FluxFTP's final endpoint names and response bodies are confirmed, map them
-in `config/adapters/fluxftp.conf` and wire `!bw`, `!df` and optional PRE sync to
-the adapter.
+in `config/adapters/fluxftp.conf`.

@@ -44,7 +44,7 @@ FluxFTP starts as a disabled HTTP API adapter in
 
 ```tcl
 ::dZSbot::Config::Set fluxftp.enabled 0
-::dZSbot::Config::Set fluxftp.base_url "http://127.0.0.1:port/api"
+::dZSbot::Config::Set fluxftp.base_url "http://127.0.0.1:port"
 ```
 
 The same `base_url` setting is used for local and remote FluxFTP APIs. See

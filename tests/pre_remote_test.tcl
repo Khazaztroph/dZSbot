@@ -65,4 +65,42 @@ if {$::remoteCalls != 1} {
     error "Remote fallback must run once when the local database has no match"
 }
 
+proc FluxFtpPreMock {url headers} {
+    if {![string match "*/pre?*" $url]} {
+        return [dict create ok 0 code 404 error "unexpected URL $url" data {}]
+    }
+
+    return [dict create ok 1 code 200 error "" data [dict create releases [list [dict create \
+        release Flux.Release-GROUP \
+        section GAMES \
+        user fluxuser \
+        group GROUP \
+        files 42 \
+        size 8192 \
+        pretime 1700000000]]]]
+}
+
+::dZSbot::Config::Set fluxftp.enabled 1
+::dZSbot::Config::Set fluxftp.base_url "http://127.0.0.1:55477/api"
+::dZSbot::Config::Set pre.fluxftp.enabled 1
+::dZSbot::Config::Set pre.fluxftp.mode "read"
+::dZSbot::Adapter::FluxFTP::SetHttpGetCommand FluxFtpPreMock
+set ::remoteCalls 0
+::dZSbot::Modules::Pre::CmdPre tester host hand #chan Flux.Release
+if {$::remoteCalls != 0} {
+    error "PreDB fallback must not run when FluxFTP fallback returns a match"
+}
+
+set fluxRows [::dZSbot::Modules::Pre::FluxFtpSearchRows Flux.Release 5]
+if {[llength $fluxRows] != 1} {
+    error "Expected one FluxFTP PRE row: $fluxRows"
+}
+set fluxRow [lindex $fluxRows 0]
+if {[dict get $fluxRow relname] ne "Flux.Release-GROUP" || [dict get $fluxRow u_name] ne "fluxuser"} {
+    error "Unexpected FluxFTP PRE normalization: $fluxRow"
+}
+if {[dict get $fluxRow pretime] != 1700000000} {
+    error "Expected FluxFTP PRE timestamp to be preserved: $fluxRow"
+}
+
 puts "PreDB.net remote lookup and local-first fallback passed"

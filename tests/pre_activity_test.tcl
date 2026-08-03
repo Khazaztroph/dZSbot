@@ -45,6 +45,9 @@ if {[dict get $sample users] != 2 || [dict get $sample speed] != 1536.0} {
 if {[string first "2@1.50 MB/s" $line] < 0} {
     error "Expected PRE activity line to include release users and speed"
 }
+if {[string first "RACE:" $line] < 0} {
+    error "Expected PRE activity line to use RACE label"
+}
 
 set idlePayload [dict create source nxPre section MUSIC path /MUSIC/Idle.Release-GROUP release Idle.Release-GROUP]
 set idleSample [::dZSbot::Modules::Pre::ActivitySample $idlePayload]

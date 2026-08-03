@@ -239,7 +239,21 @@ proc ::dZSbot::Modules::Pre::CmdPre {nick host hand chan text} {
 
     set query [string trim $text]
     set limit [::dZSbot::Config::Get pre.search_limit 5]
-    set rows [::dZSbot::Modules::Pre::Store::SearchEntries $query $limit]
+    set rows {}
+    set triedFluxFtp 0
+
+    if {[FluxFtpPrimaryMode]} {
+        set rows [FluxFtpSearchRows $query $limit]
+        set triedFluxFtp 1
+    }
+
+    if {![llength $rows]} {
+        set rows [::dZSbot::Modules::Pre::Store::SearchEntries $query $limit]
+    }
+
+    if {![llength $rows] && !$triedFluxFtp && [FluxFtpReadMode]} {
+        set rows [FluxFtpSearchRows $query $limit]
+    }
 
     if {![llength $rows]} {
         set remote [::dZSbot::Modules::Pre::Remote::Search $query $limit]
@@ -264,6 +278,82 @@ proc ::dZSbot::Modules::Pre::CmdPre {nick host hand chan text} {
         incr index
         ::dZSbot::Commands::Reply $nick $chan [::dZSbot::Modules::Pre::Formatter::Line $row $index]
     }
+}
+
+proc ::dZSbot::Modules::Pre::FluxFtpReadMode {} {
+
+    if {![::dZSbot::Config::Get pre.fluxftp.enabled 0]} {
+        return 0
+    }
+
+    set mode [string tolower [::dZSbot::Config::Get pre.fluxftp.mode "off"]]
+    return [expr {$mode in {read sync primary on}}]
+}
+
+proc ::dZSbot::Modules::Pre::FluxFtpPrimaryMode {} {
+
+    if {![::dZSbot::Config::Get pre.fluxftp.enabled 0]} {
+        return 0
+    }
+
+    set mode [string tolower [::dZSbot::Config::Get pre.fluxftp.mode "off"]]
+    return [expr {$mode eq "primary"}]
+}
+
+proc ::dZSbot::Modules::Pre::FluxFtpSearchRows {query limit} {
+
+    if {![llength [info commands ::dZSbot::Adapter::FluxFTP::PreSearch]]} {
+        return {}
+    }
+    if {[llength [info commands ::dZSbot::Adapter::FluxFTP::Enabled]] && ![::dZSbot::Adapter::FluxFTP::Enabled]} {
+        return {}
+    }
+
+    if {[catch {set result [::dZSbot::Adapter::FluxFTP::PreSearch $query $limit]} error]} {
+        ::dZSbot::Logger::Warn "FluxFTP PRE fallback failed: $error"
+        return {}
+    }
+    if {![dict get $result ok]} {
+        ::dZSbot::Logger::Warn "FluxFTP PRE fallback failed: [DictGet $result error "unknown error"]"
+        return {}
+    }
+
+    set rows {}
+    foreach release [DictGet $result releases {}] {
+        set row [NormalizeFluxFtpPreRow $release]
+        if {[DictGet $row relname ""] ne ""} {
+            lappend rows $row
+        }
+    }
+
+    return $rows
+}
+
+proc ::dZSbot::Modules::Pre::NormalizeFluxFtpPreRow {release} {
+
+    set rawTime [DictGet $release pretime [DictGet $release timestamp [clock seconds]]]
+    if {![string is integer -strict $rawTime]} {
+        set rawTime [clock seconds]
+    }
+
+    set section [string toupper [DictGet $release section "UNKNOWN"]]
+    set user [DictGet $release user [DictGet $release u_name ""]]
+    set group [DictGet $release group [DictGet $release g_name ""]]
+    set size [DictGet $release size [DictGet $release size_kb ""]]
+    set files [DictGet $release files [DictGet $release file_count ""]]
+
+    return [dict create \
+        section $section \
+        relname [DictGet $release relname [DictGet $release release ""]] \
+        u_name $user \
+        g_name $group \
+        nukereason [DictGet $release nukereason [DictGet $release reason ""]] \
+        size $size \
+        files $files \
+        pretime $rawTime \
+        predate [clock format $rawTime -format "%Y-%m-%d %H:%M:%S"] \
+        preage [::dZSbot::Modules::Pre::Formatter::Age $rawTime] \
+        source FluxFTP-PRE]
 }
 
 proc ::dZSbot::Modules::Pre::CmdAddPre {nick host hand chan text} {

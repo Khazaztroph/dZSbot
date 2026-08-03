@@ -1,3 +1,18 @@
+## 2.1.0 - 2026-08-03
+
+- Promoted FluxFTP/RaceTrade support from scaffold to a usable adapter path for
+  `!bw`, `!df` and PRE fallback reads.
+- Added HTTPS transport registration for Tcl's `http` package and support for
+  local self-signed FluxFTP TLS with `fluxftp.tls_verify 0`.
+- Added Basic Auth support without requiring an external `base64` Tcl package.
+- Made FluxFTP bandwidth lookup try CBFTP-compatible endpoints such as
+  `transferjobs`, `spreadjobs` and `jobs` when `transfers` is unavailable.
+- Normalized active CBFTP/RaceTrade jobs as `XFER` so IRC bandwidth output can
+  show live race activity even when the API does not expose UP/DN direction.
+- Renamed PRE bandwidth activity output from `PRE-BW` to `RACE`.
+- Updated FluxFTP and site command documentation for RaceTrade/CBFTP-style API
+  roots that use `https://host:port` rather than `/api`.
+
 ## 2.0.9 - 2026-07-30
 
 - Improved IMDb upload parsing for `Custom` and regional subtitle tags.
@@ -72,7 +87,7 @@
 
 ## 2.0.4 - 2026-07-19
 
-- Made PRE-BW release-specific by matching `ioftpd who` paths to the PRE event,
+- Made RACE activity release-specific by matching `ioftpd who` paths to the PRE event,
   excluding unrelated site traffic and suppressing idle samples by default.
 - Added theme templates for classic PRE announcements, PRE search results,
   bandwidth activity and daily PRE statistics.

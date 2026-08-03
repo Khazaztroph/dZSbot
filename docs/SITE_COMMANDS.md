@@ -64,9 +64,19 @@ Configure dZSbot:
 
 ```tcl
 ::dZSbot::Config::Set site.commands.df.source "cache"
+::dZSbot::Config::Set site.commands.df.fallback "cache"
 ::dZSbot::Config::Set site.commands.df.cache_file "C:/ioFTPD/logs/dzsbot-df.tsv"
 ::dZSbot::Config::Set site.commands.df.cache_max_age_seconds 300
 ```
+
+With FluxFTP API enabled, `!df` can read sections directly from FluxFTP:
+
+```tcl
+::dZSbot::Config::Set site.commands.df.source "fluxftp"
+```
+
+If the API is unavailable, dZSbot falls back to the cache file when
+`site.commands.df.fallback` is `cache`.
 
 For local/direct mode, configure the sections that `!df` should report:
 
@@ -147,10 +157,20 @@ Configure dZSbot to read the same file:
 
 ```tcl
 ::dZSbot::Config::Set site.commands.bw.source "cache"
+::dZSbot::Config::Set site.commands.bw.fallback "cache"
 ::dZSbot::Config::Set site.commands.bw.cache_file "C:/ioFTPD/logs/dzsbot-bw.tsv"
 ::dZSbot::Config::Set site.commands.bw.cache_max_age_seconds 15
 ::dZSbot::Config::Set site.commands.bw.max_lines 6
 ```
+
+With FluxFTP API enabled, `!bw` can read live transfers directly from FluxFTP:
+
+```tcl
+::dZSbot::Config::Set site.commands.bw.source "fluxftp"
+```
+
+If FluxFTP does not answer, dZSbot falls back to the cache file when
+`site.commands.bw.fallback` is `cache`.
 
 IRC example:
 

@@ -177,5 +177,5 @@ proc ::dZSbot::Modules::Pre::Formatter::ActivityLine {section release delay samp
         section $section \
         release $release \
         delay $delay \
-        activity $activity] {PRE-BW: [{section}] {release} | {delay}s: {activity}}]
+        activity $activity] {RACE: [{section}] {release} | {delay}s: {activity}}]
 }

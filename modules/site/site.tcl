@@ -17,19 +17,52 @@ proc ::dZSbot::Modules::Site::CmdDf {nick host hand chan text} {
     set source [string tolower [::dZSbot::Config::Get site.commands.df.source "cache"]]
 
     set sections [DfSections]
-    if {$source ni {cache file status} && ![llength $sections]} {
+    if {$source ni {auto cache file status fluxftp api} && ![llength $sections]} {
         ::dZSbot::Commands::Reply $nick $replyTarget "DF: no sections configured. Set site.df.sections in config/modules/site.conf."
         return
     }
 
-    if {$source in {cache file status}} {
+    if {$source in {auto fluxftp api}} {
+        set api [FluxFtpDfLines $filter]
+        if {[dict get $api ok]} {
+            set lines [dict get $api lines]
+        } elseif {$source ni {auto} && [DfFallbackEnabled]} {
+            set fallback [DfCacheLines $filter]
+            if {[dict get $fallback ok]} {
+                set lines [dict get $fallback lines]
+            } else {
+                lappend lines "DF: ERROR | [dict get $api error]; fallback failed: [dict get $fallback error]"
+            }
+        } elseif {$source ni {auto}} {
+            lappend lines "DF: ERROR | [dict get $api error]"
+        }
+    }
+
+    if {![llength $lines] && $source in {auto cache file status}} {
         set cache [DfCacheLines $filter]
         if {[dict get $cache ok]} {
             set lines [dict get $cache lines]
-        } else {
+        } elseif {$source ni {auto}} {
             lappend lines "DF: ERROR | [dict get $cache error]"
         }
-    } else {
+    }
+
+    if {![llength $lines] && $source eq "auto" && [llength $sections]} {
+        foreach section $sections {
+            if {![dict get $section ok]} {
+                lappend lines "DF: invalid section config | [dict get $section error]"
+                continue
+            }
+
+            set name [string toupper [dict get $section name]]
+            set path [dict get $section path]
+            if {$filter ne "" && ![string match "*$filter*" $name]} {
+                continue
+            }
+
+            lappend lines [FormatDfLine $name $path [DiskFree $path]]
+        }
+    } elseif {$source ni {auto cache file status fluxftp api}} {
         foreach section $sections {
             if {![dict get $section ok]} {
                 lappend lines "DF: invalid section config | [dict get $section error]"
@@ -146,6 +179,32 @@ proc ::dZSbot::Modules::Site::DfCacheLines {filter} {
         }
 
         lappend lines [FormatDfLine $name [dict get $entry path] $entry]
+    }
+
+    return [dict create ok 1 error "" lines $lines]
+}
+
+proc ::dZSbot::Modules::Site::FluxFtpDfLines {filter} {
+
+    if {![FluxFtpAvailable]} {
+        return [dict create ok 0 error "FluxFTP adapter unavailable" lines {}]
+    }
+
+    if {[catch {set result [::dZSbot::Adapter::FluxFTP::DiskFree]} error]} {
+        return [dict create ok 0 error $error lines {}]
+    }
+    if {![dict get $result ok]} {
+        return [dict create ok 0 error [DictGet $result error "FluxFTP diskfree failed"] lines {}]
+    }
+
+    set lines {}
+    foreach section [DictGet $result sections {}] {
+        set name [string toupper [DictGet $section name "UNKNOWN"]]
+        if {$filter ne "" && ![string match "*$filter*" $name]} {
+            continue
+        }
+
+        lappend lines [FormatDfLine $name [DictGet $section path ""] [dict merge [dict create ok 1] $section]]
     }
 
     return [dict create ok 1 error "" lines $lines]
@@ -314,6 +373,23 @@ proc ::dZSbot::Modules::Site::TransferSample {} {
 
     set source [string tolower [::dZSbot::Config::Get site.commands.bw.source "cache"]]
 
+    if {$source in {auto fluxftp api}} {
+        set sample [FluxFtpTransferSample]
+        if {[dict get $sample available]} {
+            return $sample
+        }
+        if {$source ni {auto} && [BwFallbackEnabled]} {
+            set fallback [CacheTransferSample]
+            if {[dict get $fallback available]} {
+                return $fallback
+            }
+            dict set sample error "[dict get $sample error]; fallback failed: [dict get $fallback error]"
+        }
+        if {$source ne "auto"} {
+            return $sample
+        }
+    }
+
     if {$source in {auto cache file status}} {
         set sample [CacheTransferSample]
         if {[dict get $sample available] || $source ne "auto"} {
@@ -336,6 +412,84 @@ proc ::dZSbot::Modules::Site::TransferSample {} {
     }
 
     return [dict create available 0 total 0 active 0 speed 0 lines {} error "no usable BW source" type none]
+}
+
+proc ::dZSbot::Modules::Site::FluxFtpAvailable {} {
+
+    if {![llength [info commands ::dZSbot::Adapter::FluxFTP::Enabled]]} {
+        return 0
+    }
+
+    if {![::dZSbot::Adapter::FluxFTP::Enabled]} {
+        return 0
+    }
+
+    return 1
+}
+
+proc ::dZSbot::Modules::Site::DfFallbackEnabled {} {
+
+    set fallback [string tolower [::dZSbot::Config::Get site.commands.df.fallback "cache"]]
+    return [expr {$fallback in {cache file status}}]
+}
+
+proc ::dZSbot::Modules::Site::BwFallbackEnabled {} {
+
+    set fallback [string tolower [::dZSbot::Config::Get site.commands.bw.fallback "cache"]]
+    return [expr {$fallback in {cache file status}}]
+}
+
+proc ::dZSbot::Modules::Site::FluxFtpTransferSample {} {
+
+    if {![FluxFtpAvailable]} {
+        return [dict create available 0 total 0 active 0 speed 0 lines {} error "FluxFTP adapter unavailable" type fluxftp]
+    }
+
+    if {[catch {set result [::dZSbot::Adapter::FluxFTP::Bandwidth]} error]} {
+        return [dict create available 0 total 0 active 0 speed 0 lines {} error $error type fluxftp]
+    }
+    if {![dict get $result ok]} {
+        return [dict create available 0 total 0 active 0 speed 0 lines {} error [DictGet $result error "FluxFTP bandwidth failed"] type fluxftp]
+    }
+
+    set uploadCount [DictGet $result upload_count 0]
+    set downloadCount [DictGet $result download_count 0]
+    set transferCount [DictGet $result transfer_count 0]
+    set idleCount [DictGet $result idle_count 0]
+    set uploadSpeed [DictGet $result upload_speed_kbps 0]
+    set downloadSpeed [DictGet $result download_speed_kbps 0]
+    set transferSpeed [DictGet $result transfer_speed_kbps 0]
+    set totalSpeed [DictGet $result total_speed_kbps [expr {$uploadSpeed + $downloadSpeed}]]
+    set active [expr {$uploadCount + $downloadCount + $transferCount}]
+    set total [expr {$active + $idleCount}]
+    set showIdle [::dZSbot::Config::Get site.commands.bw.show_idle 0]
+    set lines {}
+
+    foreach transfer [DictGet $result transfers {}] {
+        set direction [DictGet $transfer direction "unknown"]
+        set speed [DictGet $transfer speed_kbps 0]
+        if {($direction eq "idle" || $speed <= 0) && !$showIdle} {
+            continue
+        }
+
+        lappend lines [FormatFluxFtpTransferLine $transfer]
+    }
+
+    set summary "BW: UP $uploadCount @ [FormatSpeed $uploadSpeed] | DN $downloadCount @ [FormatSpeed $downloadSpeed]"
+    if {$transferCount > 0} {
+        append summary " | XFER $transferCount @ [FormatSpeed $transferSpeed]"
+    }
+    append summary " | idle $idleCount | total [FormatSpeed $totalSpeed]"
+
+    return [dict create \
+        available 1 \
+        total $total \
+        active $active \
+        speed $totalSpeed \
+        lines [LimitLines $lines] \
+        summary $summary \
+        error "" \
+        type fluxftp]
 }
 
 proc ::dZSbot::Modules::Site::CacheTransferSample {} {
@@ -695,6 +849,8 @@ proc ::dZSbot::Modules::Site::FormatCacheTransferLine {entry} {
         set label "UP"
     } elseif {$label eq "DOWNLOAD"} {
         set label "DN"
+    } elseif {$label eq "TRANSFER"} {
+        set label "XFER"
     } elseif {$label eq "UNKNOWN"} {
         set label "XFER"
     }
@@ -712,6 +868,31 @@ proc ::dZSbot::Modules::Site::FormatCacheTransferLine {entry} {
     }
 
     return "BW: $label | $account | [FormatSpeed [dict get $entry speed]] | $path"
+}
+
+proc ::dZSbot::Modules::Site::FormatFluxFtpTransferLine {entry} {
+
+    set direction [DictGet $entry direction "unknown"]
+    set label [string toupper $direction]
+    if {$label eq "UPLOAD"} {
+        set label "UP"
+    } elseif {$label eq "DOWNLOAD"} {
+        set label "DN"
+    } elseif {$label eq "UNKNOWN"} {
+        set label "XFER"
+    }
+
+    set user [DictGet $entry user ""]
+    set group [DictGet $entry group ""]
+    set account $user
+    if {$group ne ""} {
+        set account "$user/$group"
+    }
+    if {$account eq ""} {
+        set account "unknown"
+    }
+
+    return "BW: $label | $account | [FormatSpeed [DictGet $entry speed_kbps 0]] | [DictGet $entry path ""]"
 }
 
 proc ::dZSbot::Modules::Site::DictGet {dictValue key default} {

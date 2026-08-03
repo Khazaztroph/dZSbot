@@ -18,11 +18,26 @@ proc ::dZSbot::Adapter::FluxFTP::Enabled {} {
 }
 
 proc ::dZSbot::Adapter::FluxFTP::BaseUrl {} {
-    return [string trimright [::dZSbot::Config::Get fluxftp.base_url "http://127.0.0.1:port/api"] "/"]
+    return [string trimright [::dZSbot::Config::Get fluxftp.base_url "http://127.0.0.1:port"] "/"]
 }
 
 proc ::dZSbot::Adapter::FluxFTP::Endpoint {name defaultPath} {
     return [::dZSbot::Config::Get "fluxftp.endpoint.$name" $defaultPath]
+}
+
+proc ::dZSbot::Adapter::FluxFTP::EndpointCandidates {name defaults} {
+    set configured [Endpoint $name ""]
+    set result {}
+
+    foreach endpoint [concat [list $configured] $defaults] {
+        set endpoint [string trim $endpoint]
+        if {$endpoint eq "" || $endpoint in $result} {
+            continue
+        }
+        lappend result $endpoint
+    }
+
+    return $result
 }
 
 proc ::dZSbot::Adapter::FluxFTP::Url {path {params {}}} {
@@ -42,6 +57,25 @@ proc ::dZSbot::Adapter::FluxFTP::Url {path {params {}}} {
 
 proc ::dZSbot::Adapter::FluxFTP::EnsureHttp {} {
     package require http
+
+    if {[string match -nocase "https://*" [BaseUrl]]} {
+        package require tls
+        catch {::http::unregister https}
+        ::http::register https 443 ::dZSbot::Adapter::FluxFTP::TlsSocket
+    }
+}
+
+proc ::dZSbot::Adapter::FluxFTP::TlsSocket {args} {
+    set require [::dZSbot::Config::Get fluxftp.tls_verify 1]
+    if {![string is boolean -strict $require]} {
+        set require 1
+    }
+
+    if {![catch {set sock [::tls::socket -autoservername true -require $require {*}$args]}]} {
+        return $sock
+    }
+
+    return [::tls::socket -require $require {*}$args]
 }
 
 proc ::dZSbot::Adapter::FluxFTP::Headers {} {
@@ -51,7 +85,13 @@ proc ::dZSbot::Adapter::FluxFTP::Headers {} {
     set authScheme [::dZSbot::Config::Get fluxftp.auth_scheme "Bearer"]
 
     if {[string trim $apiKey] ne ""} {
-        if {$authScheme eq ""} {
+        if {[string equal -nocase $authScheme "Basic"]} {
+            set credential $apiKey
+            if {[string first ":" $credential] < 0} {
+                set credential ":$credential"
+            }
+            lappend headers $authHeader "Basic [Base64Encode $credential]"
+        } elseif {$authScheme eq ""} {
             lappend headers $authHeader $apiKey
         } else {
             lappend headers $authHeader "$authScheme $apiKey"
@@ -59,6 +99,31 @@ proc ::dZSbot::Adapter::FluxFTP::Headers {} {
     }
 
     return $headers
+}
+
+proc ::dZSbot::Adapter::FluxFTP::Base64Encode {value} {
+    if {![catch {binary encode base64 -maxlen 0 $value} encoded]} {
+        return $encoded
+    }
+
+    set alphabet "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    set output ""
+    binary scan $value c* bytes
+
+    for {set index 0} {$index < [llength $bytes]} {incr index 3} {
+        set b1 [expr {([lindex $bytes $index] + 256) % 256}]
+        set have2 [expr {$index + 1 < [llength $bytes]}]
+        set have3 [expr {$index + 2 < [llength $bytes]}]
+        set b2 [expr {$have2 ? (([lindex $bytes [expr {$index + 1}]] + 256) % 256) : 0}]
+        set b3 [expr {$have3 ? (([lindex $bytes [expr {$index + 2}]] + 256) % 256) : 0}]
+
+        append output [string index $alphabet [expr {$b1 >> 2}]]
+        append output [string index $alphabet [expr {(($b1 & 0x03) << 4) | ($b2 >> 4)}]]
+        append output [expr {$have2 ? [string index $alphabet [expr {(($b2 & 0x0f) << 2) | ($b3 >> 6)}]] : "="}]
+        append output [expr {$have3 ? [string index $alphabet [expr {$b3 & 0x3f}]] : "="}]
+    }
+
+    return $output
 }
 
 proc ::dZSbot::Adapter::FluxFTP::GetJson {path {params {}}} {
@@ -74,7 +139,7 @@ proc ::dZSbot::Adapter::FluxFTP::GetJson {path {params {}}} {
     }
 
     if {[catch {
-        package require http
+        EnsureHttp
         package require json
         set token [::http::geturl $url -timeout [::dZSbot::Config::Get fluxftp.timeout_ms 5000] -headers [Headers]]
         set status [::http::status $token]
@@ -108,17 +173,24 @@ proc ::dZSbot::Adapter::FluxFTP::Health {} {
 }
 
 proc ::dZSbot::Adapter::FluxFTP::Bandwidth {} {
-    set response [GetJson [Endpoint bandwidth "transfers"]]
-    if {![dict get $response ok]} {
-        return [dict create ok 0 adapter fluxftp error [dict get $response error] transfers {}]
+    set errors {}
+
+    foreach endpoint [EndpointCandidates bandwidth {transfers transferjobs spreadjobs jobs}] {
+        set response [GetJson $endpoint]
+        if {[dict get $response ok]} {
+            set transfers [NormalizeTransferList [Items [dict get $response data] {transfers bandwidth transferjobs spreadjobs jobs items data}]]
+            set summary [SummarizeTransfers $transfers]
+            dict set summary ok 1
+            dict set summary adapter fluxftp
+            dict set summary endpoint $endpoint
+            dict set summary transfers $transfers
+            return $summary
+        }
+
+        lappend errors "$endpoint: [dict get $response error]"
     }
 
-    set transfers [NormalizeTransferList [Items [dict get $response data] {transfers bandwidth items data}]]
-    set summary [SummarizeTransfers $transfers]
-    dict set summary ok 1
-    dict set summary adapter fluxftp
-    dict set summary transfers $transfers
-    return $summary
+    return [dict create ok 0 adapter fluxftp error "no bandwidth endpoint worked ([join $errors {; }])" transfers {}]
 }
 
 proc ::dZSbot::Adapter::FluxFTP::DiskFree {} {
@@ -189,23 +261,45 @@ proc ::dZSbot::Adapter::FluxFTP::NormalizeTransferList {items} {
         }
 
         lappend result [dict create \
-            direction [NormalizeDirection [FirstValue $item {direction type status mode} "unknown"]] \
-            user [FirstValue $item {user username account} ""] \
-            group [FirstValue $item {group user_group} ""] \
-            speed_kbps [Number [FirstValue $item {speed_kbps speed kbps transfer_speed transferSpeed} 0]] \
-            path [FirstValue $item {path virtual_path virtualPath vpath file} ""] \
+            direction [NormalizeDirection [FirstValue $item {direction type status mode state} "unknown"]] \
+            user [FirstValue $item {user username account src_user dst_user} ""] \
+            group [FirstValue $item {group user_group src_group dst_group} ""] \
+            speed_kbps [TransferSpeedKbps $item] \
+            path [FirstValue $item {path virtual_path virtualPath vpath file name release relname} ""] \
             raw $item]
     }
 
     return $result
 }
 
+proc ::dZSbot::Adapter::FluxFTP::TransferSpeedKbps {item} {
+    set direct [Number [FirstValue $item {speed_kbps speed kbps transfer_speed transferSpeed average_speed_kbps avg_speed_kbps} ""]]
+    if {$direct > 0} {
+        return $direct
+    }
+
+    set mbps [Number [FirstValue $item {average_speed avg_speed speed_mbps speedMBps} ""]]
+    if {$mbps > 0} {
+        return [expr {$mbps * 1024.0}]
+    }
+
+    set bytes [Number [FirstValue $item {size_progress_bytes bytes_progress bytes_transferred size_estimated_bytes size_bytes} ""]]
+    set seconds [Number [FirstValue $item {time_spent_seconds elapsed_seconds duration_seconds} ""]]
+    if {$bytes > 0 && $seconds > 0} {
+        return [expr {($bytes / $seconds) / 1024.0}]
+    }
+
+    return 0
+}
+
 proc ::dZSbot::Adapter::FluxFTP::SummarizeTransfers {transfers} {
     set uploadCount 0
     set downloadCount 0
+    set transferCount 0
     set idleCount 0
     set uploadSpeed 0.0
     set downloadSpeed 0.0
+    set transferSpeed 0.0
 
     foreach transfer $transfers {
         set direction [dict get $transfer direction]
@@ -217,12 +311,15 @@ proc ::dZSbot::Adapter::FluxFTP::SummarizeTransfers {transfers} {
         } elseif {$direction eq "download"} {
             incr downloadCount
             set downloadSpeed [expr {$downloadSpeed + $speed}]
+        } elseif {$direction eq "transfer"} {
+            incr transferCount
+            set transferSpeed [expr {$transferSpeed + $speed}]
         } else {
             incr idleCount
         }
     }
 
-    return [dict create upload_count $uploadCount download_count $downloadCount idle_count $idleCount upload_speed_kbps $uploadSpeed download_speed_kbps $downloadSpeed total_speed_kbps [expr {$uploadSpeed + $downloadSpeed}]]
+    return [dict create upload_count $uploadCount download_count $downloadCount transfer_count $transferCount idle_count $idleCount upload_speed_kbps $uploadSpeed download_speed_kbps $downloadSpeed transfer_speed_kbps $transferSpeed total_speed_kbps [expr {$uploadSpeed + $downloadSpeed + $transferSpeed}]]
 }
 
 proc ::dZSbot::Adapter::FluxFTP::NormalizeDiskFreeList {items} {
@@ -276,6 +373,8 @@ proc ::dZSbot::Adapter::FluxFTP::NormalizeUploadList {items} {
             group [FirstValue $item {group user_group} ""] \
             files [FirstValue $item {files file_count} ""] \
             size [FirstValue $item {size size_kb sizeKB} ""] \
+            pretime [FirstValue $item {pretime timestamp created_at createdAt} ""] \
+            nukereason [FirstValue $item {nukereason reason nuke_reason nukeReason} ""] \
             raw $item]
     }
 
@@ -300,7 +399,10 @@ proc ::dZSbot::Adapter::FluxFTP::NormalizeDirection {value} {
     if {$text in {dn down download downloading retr fxp 1}} {
         return download
     }
-    if {$text in {idle none 0 3}} {
+    if {$text in {running racing active transferring transfer xfer in_progress in-progress 4}} {
+        return transfer
+    }
+    if {$text in {idle none done complete completed failed aborted timeout 0 3}} {
         return idle
     }
 

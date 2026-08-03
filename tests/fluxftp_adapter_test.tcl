@@ -59,6 +59,29 @@ if {[dict get $bw total_speed_kbps] != 3072} {
     error "Expected FluxFTP total speed 3072 KB/s: $bw"
 }
 
+proc MockFluxCbftpHttpGet {url headers} {
+    if {[string match */transfers $url]} {
+        return [dict create ok 0 code 404 error "HTTP 404 (ok)" data {}]
+    }
+    if {[string match */transferjobs $url]} {
+        return [dict create ok 1 code 200 error "" data [dict create transferjobs [list \
+            [dict create status running user cbuser group CBGROUP average_speed 2.5 name Cbftp.Release-GRP] \
+            [dict create status done user cbuser group CBGROUP average_speed 0 name Done.Release-GRP]]]]
+    }
+    return [dict create ok 0 code 404 error "not found" data {}]
+}
+
+::dZSbot::Adapter::FluxFTP::SetHttpGetCommand MockFluxCbftpHttpGet
+set cbftpBw [::dZSbot::Adapter::FluxFTP::Bandwidth]
+if {![dict get $cbftpBw ok] || [dict get $cbftpBw endpoint] ne "transferjobs"} {
+    error "Expected FluxFTP bandwidth to fall back to transferjobs: $cbftpBw"
+}
+if {[dict get $cbftpBw transfer_count] != 1 || [dict get $cbftpBw total_speed_kbps] != 2560.0} {
+    error "Expected CBFTP average_speed MB/s to normalize to KB/s: $cbftpBw"
+}
+
+::dZSbot::Adapter::FluxFTP::SetHttpGetCommand MockFluxHttpGet
+
 set df [::dZSbot::Adapter::FluxFTP::DiskFree]
 if {![dict get $df ok] || [dict get [lindex [dict get $df sections] 0] name] ne "MOVIES"} {
     error "Expected normalized FluxFTP disk free: $df"
@@ -85,4 +108,17 @@ if {![string match "http://127.0.0.1:8080/api/pre?*" $::MockFluxLastUrl]} {
 array set mockHeaders $::MockFluxLastHeaders
 if {![info exists mockHeaders(Authorization)] || $mockHeaders(Authorization) ne "Bearer secret"} {
     error "Expected FluxFTP Authorization header: $::MockFluxLastHeaders"
+}
+
+::dZSbot::Config::Set fluxftp.auth_scheme "Basic"
+::dZSbot::Config::Set fluxftp.api_key "secret"
+array unset mockHeaders
+array set mockHeaders [::dZSbot::Adapter::FluxFTP::Headers]
+if {![info exists mockHeaders(Authorization)] || $mockHeaders(Authorization) ne "Basic OnNlY3JldA=="} {
+    error "Expected FluxFTP Basic password auth header: [array get mockHeaders]"
+}
+
+::dZSbot::Config::Set fluxftp.base_url "https://127.0.0.1:55477/api"
+if {[catch {::dZSbot::Adapter::FluxFTP::EnsureHttp} error]} {
+    puts "Skipping live HTTPS transport registration check: $error"
 }

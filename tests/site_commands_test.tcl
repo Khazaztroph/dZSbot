@@ -53,6 +53,33 @@ if {![string match "*UP 1 @ 2.00 MB/s | DN 1 @ 1.00 MB/s*" [dict get $cacheBw su
     error "Unexpected BW cache summary: $cacheBw"
 }
 
+proc FluxFtpSiteMock {url headers} {
+    if {[string match "*/transfers" $url]} {
+        return [dict create ok 1 code 200 error "" data [dict create transfers [list \
+            [dict create direction upload user fluxup group API speed_kbps 4096 path /MOVIES/Flux.Release-GRP] \
+            [dict create direction download user fluxdn group API speed_kbps 1024 path /TV/Flux.Show-GRP] \
+            [dict create direction idle user fluxidle group API speed_kbps 0 path /IDLE]]]]
+    }
+    if {[string match "*/sections" $url]} {
+        return [dict create ok 1 code 200 error "" data [dict create sections [list \
+            [dict create name MOVIES path /MOVIES free_mb 2048 used_mb 2048 total_mb 4096] \
+            [dict create name TV path /TV free_mb 1024 used_mb 3072 total_mb 4096]]]]
+    }
+    return [dict create ok 0 code 404 error "unexpected URL $url" data {}]
+}
+
+::dZSbot::Config::Set fluxftp.enabled 1
+::dZSbot::Config::Set fluxftp.base_url "http://127.0.0.1:55477/api"
+::dZSbot::Adapter::FluxFTP::SetHttpGetCommand FluxFtpSiteMock
+::dZSbot::Config::Set site.commands.bw.source "fluxftp"
+set fluxBw [::dZSbot::Modules::Site::TransferSample]
+if {![dict get $fluxBw available] || [dict get $fluxBw active] != 2 || [dict get $fluxBw total] != 3} {
+    error "Expected FluxFTP BW sample: $fluxBw"
+}
+if {![string match "*UP 1 @ 4.00 MB/s | DN 1 @ 1.00 MB/s*" [dict get $fluxBw summary]]} {
+    error "Unexpected FluxFTP BW summary: $fluxBw"
+}
+
 set df [::dZSbot::Modules::Site::DiskFree $tempSection]
 if {![dict get $df ok]} {
     error "Expected runtime disk free to be readable: $df"
@@ -85,6 +112,15 @@ if {![llength $dictSections] || ![dict get [lindex $dictSections 0] ok]} {
     error "Expected dict-style DF sections to parse: $dictSections"
 }
 
+::dZSbot::Config::Set site.commands.df.source "fluxftp"
+set fluxDf [::dZSbot::Modules::Site::FluxFtpDfLines "MOVIES"]
+if {![dict get $fluxDf ok] || [llength [dict get $fluxDf lines]] != 1} {
+    error "Expected FluxFTP DF line: $fluxDf"
+}
+if {![string match "*DF: MOVIES | free 2.00 GB / total 4.00 GB*" [lindex [dict get $fluxDf lines] 0]]} {
+    error "Unexpected FluxFTP DF output: $fluxDf"
+}
+
 set trafficLines [::dZSbot::Modules::Site::ParseSiteCommandLines {
     {200-| [Stats]}
     {200-| STATS - Show transfer statistics.}
@@ -100,5 +136,6 @@ if {[::dZSbot::Modules::Site::DictGet $siteSample type ""] ne "site"} {
     error "Expected site sample type helper to work"
 }
 
+::dZSbot::Config::Set site.commands.df.source "cache"
 ::dZSbot::Commands::Dispatch !bw tester host hand #chan ""
 ::dZSbot::Commands::Dispatch !df tester host hand #chan "runtime"
