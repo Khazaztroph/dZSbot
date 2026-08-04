@@ -1,3 +1,10 @@
+## 2.1.1 - 2026-08-04
+
+- Fixed `!pres` and `!pre` in MySQL mode when PRE import had written rows to
+  the TSV fallback store. MySQL is still preferred, but empty MySQL reads now
+  fall back to TSV when `pre.mysql.fallback_to_tsv` is enabled.
+- Added regression coverage for MySQL-mode reads from TSV fallback storage.
+
 ## 2.1.0 - 2026-08-03
 
 - Promoted FluxFTP/RaceTrade support from scaffold to a usable adapter path for

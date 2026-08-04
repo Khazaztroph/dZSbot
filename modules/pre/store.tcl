@@ -196,7 +196,12 @@ proc ::dZSbot::Modules::Pre::Store::AddEntry {entry} {
 proc ::dZSbot::Modules::Pre::Store::SearchEntries {query {limit 10}} {
 
     if {[UsingMySQL]} {
-        return [::dZSbot::Modules::Pre::MySQLStore::Search $query $limit]
+        set rows [::dZSbot::Modules::Pre::MySQLStore::Search $query $limit]
+        if {[llength $rows] || ![MySQLFallbackEnabled]} {
+            return $rows
+        }
+
+        return [Search $query $limit]
     }
 
     return [Search $query $limit]
@@ -214,10 +219,20 @@ proc ::dZSbot::Modules::Pre::Store::Exists {release} {
 proc ::dZSbot::Modules::Pre::Store::LatestEntries {{limit 10}} {
 
     if {[UsingMySQL]} {
-        return [::dZSbot::Modules::Pre::MySQLStore::Latest $limit]
+        set rows [::dZSbot::Modules::Pre::MySQLStore::Latest $limit]
+        if {[llength $rows] || ![MySQLFallbackEnabled]} {
+            return $rows
+        }
+
+        return [Search "" $limit]
     }
 
     return [Search "" $limit]
+}
+
+proc ::dZSbot::Modules::Pre::Store::MySQLFallbackEnabled {} {
+
+    return [expr {[::dZSbot::Config::Get pre.mysql.fallback_to_tsv 1] ? 1 : 0}]
 }
 
 proc ::dZSbot::Modules::Pre::Store::Status {} {
