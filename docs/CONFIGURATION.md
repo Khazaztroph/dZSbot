@@ -107,7 +107,7 @@ also independently themeable:
 ::dZSbot::Config::Set theme.template.pre.announce.classic "%c1{{pre_type}}: %c2{{release}} | %c3{{section}} | {group} | {files}F/{size}"
 ::dZSbot::Config::Set theme.template.pre.result "%c1{{prefix}}: %c2{{release}} | %c3{{section}} | {age} ago | {user}/{group} | {size} | {files}F"
 ::dZSbot::Config::Set theme.template.pre.activity "%c1{RACE}: \[%c3{{section}}\] %c2{{release}} | {delay}s: {activity}"
-::dZSbot::Config::Set theme.template.pre.stats.header "%c1{PRE Daily Stats}: last %c2{{hours}h} | %c3{{releases} releases} | {files}F | {size}"
+::dZSbot::Config::Set theme.template.pre.stats.header "%c1{PRE {title} Stats}: %c2{{label}} | %c3{{releases} releases} | {files}F | {size}"
 ::dZSbot::Config::Set theme.template.pre.stats.top "%c1{PRE Top {label}}: %c2{{entries}}"
 ```
 

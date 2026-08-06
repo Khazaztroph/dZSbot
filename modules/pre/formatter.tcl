@@ -131,18 +131,22 @@ proc ::dZSbot::Modules::Pre::Formatter::DictGet {dictValue key default} {
     return [dict get $dictValue $key]
 }
 
-proc ::dZSbot::Modules::Pre::Formatter::StatsHeader {hours totals} {
+proc ::dZSbot::Modules::Pre::Formatter::StatsHeader {period totals} {
 
     set releases [dict get $totals releases]
     set files [dict get $totals files]
     set size [Size [dict get $totals size]]
+    set title [DictGet $period title "Daily"]
+    set label [DictGet $period label "last [DictGet $period hours 24]h"]
 
     return [::dZSbot::Theme::Render pre.stats.header [dict create \
         section PRE \
-        hours $hours \
+        title $title \
+        label $label \
+        hours [DictGet $period hours 24] \
         releases $releases \
         files $files \
-        size $size] {PRE Daily Stats: last {hours}h | {releases} releases | {files}F | {size}}]
+        size $size] {PRE {title} Stats: {label} | {releases} releases | {files}F | {size}}]
 }
 
 proc ::dZSbot::Modules::Pre::Formatter::StatsTopLine {label rows} {

@@ -111,16 +111,31 @@ PRE can announce a daily top summary in IRC:
 ::dZSbot::Config::Set pre.daily_stats.enabled 1
 ::dZSbot::Config::Set pre.daily_stats.channel "#pre"
 ::dZSbot::Config::Set pre.daily_stats.time "23:59"
+::dZSbot::Config::Set pre.daily_stats.periods {day week month}
 ::dZSbot::Config::Set pre.daily_stats.window_hours 24
 ::dZSbot::Config::Set pre.daily_stats.top_limit 5
 ```
 
+`pre.daily_stats.periods` can contain one or more of:
+
+```text
+day
+week
+month
+```
+
+The legacy `pre.daily_stats.window_hours` setting is still used when
+`pre.daily_stats.periods` is empty.
+
 Example output:
 
 ```text
-PRE Daily Stats: last 24h | 32 releases | 418F | 88.20 GB
-PRE Top Groups: #1 GROUP (12) | #2 OTHER (8)
-PRE Top Sections: #1 MUSIC (15) | #2 MOVIES (10)
+PRE Day Stats: last 24h | 32 releases | 418F | 88.20 GB
+PRE Top Day Groups: #1 GROUP (12) | #2 OTHER (8)
+PRE Top Day Sections: #1 MUSIC (15) | #2 MOVIES (10)
+PRE Week Stats: last 7d | 188 releases | 2210F | 412.40 GB
+PRE Top Week Groups: #1 GROUP (53) | #2 OTHER (31)
+PRE Top Week Sections: #1 MUSIC (90) | #2 MOVIES (50)
 ```
 
 The daily statistics lines use `theme.template.pre.stats.header` and

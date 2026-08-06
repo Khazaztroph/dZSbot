@@ -279,26 +279,39 @@ proc ::dZSbot::Database::MySQL::Escape {value} {
 
 proc ::dZSbot::Database::MySQL::Exec {sql} {
 
-    variable Handle
-    variable Driver
-
     if {![Connect]} {
         return 0
     }
 
-    if {$Driver eq "tdbc::mysql"} {
-        set command [list TdbcExec $sql]
-    } else {
-        set command [list mysqlexec $Handle $sql]
-    }
-
-    if {[catch $command error]} {
+    if {[catch [ExecCommand $sql] error]} {
+        if {[ConnectionLostError $error]} {
+            ::dZSbot::Logger::Warn "MySQL connection lost during exec, reconnecting once."
+            Disconnect
+            if {[Connect] && ![catch [ExecCommand $sql] retryError]} {
+                return 1
+            }
+            if {[info exists retryError]} {
+                set error $retryError
+            }
+        }
         ::dZSbot::Health::Set database:mysql error $error
         ::dZSbot::Logger::Error "MySQL exec failed: $error"
         return 0
     }
 
     return 1
+}
+
+proc ::dZSbot::Database::MySQL::ExecCommand {sql} {
+
+    variable Handle
+    variable Driver
+
+    if {$Driver eq "tdbc::mysql"} {
+        return [list ::dZSbot::Database::MySQL::TdbcExec $sql]
+    }
+
+    return [list mysqlexec $Handle $sql]
 }
 
 proc ::dZSbot::Database::MySQL::TdbcExec {sql} {
@@ -323,26 +336,59 @@ proc ::dZSbot::Database::MySQL::TdbcExec {sql} {
 
 proc ::dZSbot::Database::MySQL::SelectFlat {sql} {
 
-    variable Handle
-    variable Driver
-
     if {![Connect]} {
         return {}
     }
 
-    if {$Driver eq "tdbc::mysql"} {
-        set command [list TdbcSelectFlat $sql]
-    } else {
-        set command [list mysqlsel $Handle $sql -flatlist]
-    }
-
-    if {[catch $command rows]} {
+    if {[catch [SelectFlatCommand $sql] rows]} {
+        if {[ConnectionLostError $rows]} {
+            ::dZSbot::Logger::Warn "MySQL connection lost during query, reconnecting once."
+            Disconnect
+            if {[Connect] && ![catch [SelectFlatCommand $sql] retryRows]} {
+                return $retryRows
+            }
+            if {[info exists retryRows]} {
+                set rows $retryRows
+            }
+        }
         ::dZSbot::Health::Set database:mysql error $rows
         ::dZSbot::Logger::Error "MySQL query failed: $rows"
         return {}
     }
 
     return $rows
+}
+
+proc ::dZSbot::Database::MySQL::SelectFlatCommand {sql} {
+
+    variable Handle
+    variable Driver
+
+    if {$Driver eq "tdbc::mysql"} {
+        return [list ::dZSbot::Database::MySQL::TdbcSelectFlat $sql]
+    }
+
+    return [list mysqlsel $Handle $sql -flatlist]
+}
+
+proc ::dZSbot::Database::MySQL::ConnectionLostError {error} {
+
+    set message [string tolower $error]
+
+    foreach pattern {
+        "*server has gone away*"
+        "*lost connection*"
+        "*connection*closed*"
+        "*broken pipe*"
+        "*transport endpoint is not connected*"
+        "*connection reset*"
+    } {
+        if {[string match $pattern $message]} {
+            return 1
+        }
+    }
+
+    return 0
 }
 
 proc ::dZSbot::Database::MySQL::TdbcSelectFlat {sql} {

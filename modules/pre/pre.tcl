@@ -562,17 +562,58 @@ proc ::dZSbot::Modules::Pre::RunDailyStats {} {
 
 proc ::dZSbot::Modules::Pre::DailyStatsLines {} {
 
-    set hours [::dZSbot::Config::Get pre.daily_stats.window_hours 24]
+    set periods [DailyStatsPeriods]
     set limit [::dZSbot::Config::Get pre.daily_stats.top_limit 5]
-    set rows [RowsSince [expr {[clock seconds] - ($hours * 3600)}]]
-    set totals [StatsTotals $rows]
-
     set lines {}
-    lappend lines [::dZSbot::Modules::Pre::Formatter::StatsHeader $hours $totals]
-    lappend lines [::dZSbot::Modules::Pre::Formatter::StatsTopLine "Groups" [TopList $rows g_name $limit]]
-    lappend lines [::dZSbot::Modules::Pre::Formatter::StatsTopLine "Sections" [TopList $rows section $limit]]
+
+    foreach period $periods {
+        set spec [DailyStatsPeriodSpec $period]
+        set hours [dict get $spec hours]
+        set rows [RowsSince [expr {[clock seconds] - ($hours * 3600)}]]
+        set totals [StatsTotals $rows]
+
+        lappend lines [::dZSbot::Modules::Pre::Formatter::StatsHeader $spec $totals]
+        lappend lines [::dZSbot::Modules::Pre::Formatter::StatsTopLine "[dict get $spec title] Groups" [TopList $rows g_name $limit]]
+        lappend lines [::dZSbot::Modules::Pre::Formatter::StatsTopLine "[dict get $spec title] Sections" [TopList $rows section $limit]]
+    }
 
     return $lines
+}
+
+proc ::dZSbot::Modules::Pre::DailyStatsPeriods {} {
+
+    set periods [::dZSbot::Config::Get pre.daily_stats.periods ""]
+    if {[llength $periods]} {
+        return $periods
+    }
+
+    set hours [::dZSbot::Config::Get pre.daily_stats.window_hours 24]
+    if {![string is integer -strict $hours] || $hours <= 0} {
+        set hours 24
+    }
+
+    return [list $hours]
+}
+
+proc ::dZSbot::Modules::Pre::DailyStatsPeriodSpec {period} {
+
+    set key [string tolower [string trim $period]]
+
+    if {$key in {day daily 24h 24}} {
+        return [dict create key day title Day label "last 24h" hours 24]
+    }
+    if {$key in {week weekly 7d 7days 168h 168}} {
+        return [dict create key week title Week label "last 7d" hours 168]
+    }
+    if {$key in {month monthly 30d 30days 720h 720}} {
+        return [dict create key month title Month label "last 30d" hours 720]
+    }
+    if {[string is integer -strict $key] && $key > 0} {
+        return [dict create key "${key}h" title "${key}h" label "last ${key}h" hours $key]
+    }
+
+    ::dZSbot::Logger::Warn "Unknown PRE stats period '$period', using day."
+    return [dict create key day title Day label "last 24h" hours 24]
 }
 
 proc ::dZSbot::Modules::Pre::RowsSince {since} {

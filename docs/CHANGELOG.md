@@ -3,7 +3,13 @@
 - Fixed `!pres` and `!pre` in MySQL mode when PRE import had written rows to
   the TSV fallback store. MySQL is still preferred, but empty MySQL reads now
   fall back to TSV when `pre.mysql.fallback_to_tsv` is enabled.
+- Added automatic one-shot MySQL reconnect/retry for queries and writes when an
+  idle connection is closed by the server.
+- Added configurable PRE stats periods through `pre.daily_stats.periods`, with
+  built-in day, week and month summaries.
 - Added regression coverage for MySQL-mode reads from TSV fallback storage.
+- Added regression coverage for MySQL reconnect retry and multi-period PRE
+  stats.
 
 ## 2.1.0 - 2026-08-03
 
