@@ -42,10 +42,10 @@ puts $line
 if {[dict get $sample users] != 2 || [dict get $sample speed] != 1536.0} {
     error "Expected PRE activity to count only matching release transfers: $sample"
 }
-if {[string first "2@1.50 MB/s" $line] < 0} {
+if {[string first "Example.Release-GROUP :: 2 user/s :: 1.50MB/s" $line] < 0} {
     error "Expected PRE activity line to include release users and speed"
 }
-if {[string first "RACE:" $line] < 0} {
+if {[string first "RACER" $line] < 0} {
     error "Expected PRE activity line to use RACE label"
 }
 

@@ -172,14 +172,38 @@ proc ::dZSbot::Modules::Pre::Formatter::StatsTopLine {label rows} {
 
 proc ::dZSbot::Modules::Pre::Formatter::ActivityLine {section release delay sample} {
 
-    set activity "N/A"
+    set users 0
+    set speed "N/A"
+    set speedCompact "N/A"
+    set racer "0 user/s"
+    set activity "0@N/A"
     if {[dict get $sample available]} {
-        set activity "[dict get $sample users]@[Speed [dict get $sample speed]]"
+        set users [dict get $sample users]
+        set speed [Speed [dict get $sample speed]]
+        set speedCompact [CompactUnit $speed]
+        set racer [DictGet $sample racer ""]
+        if {$racer eq ""} {
+            set racer "$users user/s"
+        }
+        set activity "${users}@$speed"
     }
 
     return [::dZSbot::Theme::Render pre.activity [dict create \
         section $section \
         release $release \
         delay $delay \
-        activity $activity] {RACE: [{section}] {release} | {delay}s: {activity}}]
+        users $users \
+        racer $racer \
+        speed $speed \
+        speed_compact $speedCompact \
+        activity $activity] {RACE: [{section}] {release} | {delay}s | racers {users} | speed {speed}}]
+}
+
+proc ::dZSbot::Modules::Pre::Formatter::CompactUnit {value} {
+
+    if {$value eq "N/A"} {
+        return $value
+    }
+
+    return [string map [list " GB/s" "GB/s" " MB/s" "MB/s" " KB/s" "KB/s" " GB" "GB" " MB" "MB" " KB" "KB"] $value]
 }

@@ -169,6 +169,7 @@ proc ::dZSbot::Modules::Pre::ActivitySample {{payload {}}} {
 
     set users 0
     set speed 0.0
+    set racers {}
 
     foreach entry $online {
         foreach {status user group userSpeed vpath} $entry {
@@ -183,12 +184,22 @@ proc ::dZSbot::Modules::Pre::ActivitySample {{payload {}}} {
         }
 
         incr users
+        if {$user ne "" && [lsearch -exact $racers $user] < 0} {
+            lappend racers $user
+        }
         if {[string is double -strict $userSpeed]} {
             set speed [expr {$speed + $userSpeed}]
         }
     }
 
-    return [dict create available 1 users $users speed $speed error ""]
+    set racer ""
+    if {[llength $racers] == 1} {
+        set racer [lindex $racers 0]
+    } elseif {[llength $racers] > 1} {
+        set racer "[llength $racers] user/s"
+    }
+
+    return [dict create available 1 users $users racers $racers racer $racer speed $speed error ""]
 }
 
 proc ::dZSbot::Modules::Pre::ActivityPathMatches {vpath payload} {

@@ -132,8 +132,48 @@ proc ::dZSbot::SiteAdapter::ParseIoFtpdLine {line} {
         return [ParseIoFtpdNewDir $data]
     }
 
+    if {[regexp {(UPDATE_[A-Z0-9_]+):[ \t]*(.*)$} $line -> type data]} {
+        return [ParseIoFtpdFirst $type $data]
+    }
+
+    if {[regexp {(HALFWAY_(?:NO)?RACE_[A-Z0-9_]+):[ \t]*(.*)$} $line -> type data]} {
+        return [ParseIoFtpdHalf $type $data]
+    }
+
     if {[regexp {(COMPLETE_STAT_RACE_[A-Z0-9_]+):[ \t]*(.*)$} $line -> type data]} {
         return [ParseIoFtpdComplete $type $data]
+    }
+
+    if {[regexp {(COMPLETE_[A-Z0-9_]+):[ \t]*(.*)$} $line -> type data]} {
+        return [ParseIoFtpdComplete $type $data]
+    }
+
+    if {[regexp {(RACE_[A-Z0-9_]+):[ \t]*(.*)$} $line -> type data]} {
+        return [ParseIoFtpdRacer $type $data]
+    }
+
+    if {[regexp {(NEWLEADER_[A-Z0-9_]+):[ \t]*(.*)$} $line -> type data]} {
+        return [ParseIoFtpdLeader $type $data]
+    }
+
+    if {[regexp {(BAD_FILE_[A-Z0-9_]+):[ \t]*(.*)$} $line -> type data]} {
+        return [ParseIoFtpdBadFile $type $data]
+    }
+
+    if {[regexp {NFO:[ \t]*(.*)$} $line -> data]} {
+        return [ParseIoFtpdNfo $data]
+    }
+
+    if {[regexp {DOUBLESFV:[ \t]*(.*)$} $line -> data]} {
+        return [ParseIoFtpdDoubleSfv $data]
+    }
+
+    if {[regexp {SPEEDTEST:[ \t]*(.*)$} $line -> data]} {
+        return [ParseIoFtpdSpeedTest $data]
+    }
+
+    if {[regexp {INCOMPLETE:[ \t]*(.*)$} $line -> data]} {
+        return [ParseIoFtpdIncomplete $data]
     }
 
     return [dict create ok 0 error "not a supported ioFTPD event line"]
@@ -169,6 +209,165 @@ proc ::dZSbot::SiteAdapter::ParseIoFtpdNewDir {data} {
     return [dict create ok 1 event site.newdir payload $payload]
 }
 
+proc ::dZSbot::SiteAdapter::ParseIoFtpdFirst {type data} {
+
+    if {[catch {llength $data} fieldCount] || $fieldCount < 8} {
+        return [dict create ok 0 error "invalid UPDATE payload"]
+    }
+
+    set path [lindex $data 0]
+    set user [lindex $data 1]
+    set group [lindex $data 2]
+    set release [lindex $data 7]
+    set section [InferSection $path]
+
+    set payload [dict create \
+        adapter ioftpd \
+        source ioFTPD \
+        action first \
+        update_type $type \
+        path $path \
+        release $release \
+        relname $release \
+        section $section \
+        user $user \
+        group $group \
+        files [lindex $data 3] \
+        speed_kbps [lindex $data 4] \
+        size [lindex $data 5]]
+
+    if {$fieldCount >= 10} {
+        dict set payload eta [lindex $data 9]
+    }
+
+    return [dict create ok 1 event site.upload.first payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::ParseIoFtpdHalf {type data} {
+
+    if {[catch {llength $data} fieldCount] || $fieldCount < 18} {
+        return [dict create ok 0 error "invalid HALFWAY payload"]
+    }
+
+    set path [lindex $data 0]
+    set release [lindex $data 1]
+    set user [lindex $data 2]
+    set group [lindex $data 3]
+    set section [InferSection $path]
+
+    set payload [dict create \
+        adapter ioftpd \
+        source ioFTPD \
+        action half \
+        halfway_type $type \
+        path $path \
+        release $release \
+        relname $release \
+        section $section \
+        user $user \
+        group $group \
+        size_mb [lindex $data 4] \
+        files [lindex $data 5] \
+        percent [lindex $data 6] \
+        speed_kbps [lindex $data 7]]
+
+    if {[string match -nocase "HALFWAY_RACE_*" $type]} {
+        if {$fieldCount >= 26} {
+            dict set payload others [lindex $data 25]
+        }
+        if {$fieldCount >= 27} {
+            dict set payload eta [lindex $data 26]
+        }
+    } elseif {$fieldCount >= 26} {
+        dict set payload eta [lindex $data 25]
+    }
+
+    return [dict create ok 1 event site.upload.half payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::ParseIoFtpdRacer {type data} {
+
+    if {[catch {llength $data} fieldCount] || $fieldCount < 7} {
+        return [dict create ok 0 error "invalid RACE payload"]
+    }
+
+    set path [lindex $data 0]
+    set user [lindex $data 1]
+    set group [lindex $data 2]
+    set release [lindex $data 4]
+    set section [InferSection $path]
+
+    set payload [dict create \
+        adapter ioftpd \
+        source ioFTPD \
+        action racer \
+        race_type $type \
+        path $path \
+        release $release \
+        relname $release \
+        section $section \
+        user $user \
+        group $group \
+        others [lindex $data 3] \
+        speed_kbps [lindex $data 5] \
+        file [lindex $data 6]]
+
+    if {$fieldCount >= 8} {
+        dict set payload duration_seconds [lindex $data 7]
+    }
+    if {$fieldCount >= 9} {
+        dict set payload percent [lindex $data 8]
+    }
+    if {$fieldCount >= 13} {
+        dict set payload files [lindex $data 11]
+        dict set payload total_files [lindex $data 12]
+    }
+    if {$fieldCount >= 17} {
+        dict set payload active_others [lindex $data 15]
+        dict set payload eta [lindex $data 16]
+    }
+
+    return [dict create ok 1 event site.upload.racer payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::ParseIoFtpdLeader {type data} {
+
+    if {[catch {llength $data} fieldCount] || $fieldCount < 15} {
+        return [dict create ok 0 error "invalid NEWLEADER payload"]
+    }
+
+    set path [lindex $data 0]
+    set release [lindex $data 8]
+    set section [InferSection $path]
+
+    set payload [dict create \
+        adapter ioftpd \
+        source ioFTPD \
+        action leader \
+        leader_type $type \
+        path $path \
+        release $release \
+        relname $release \
+        section $section \
+        user [lindex $data 14] \
+        group [lindex $data 15] \
+        speed_kbps [lindex $data 3] \
+        duration_seconds [lindex $data 4] \
+        files [lindex $data 5] \
+        percent [lindex $data 6] \
+        size [lindex $data 7] \
+        file [lindex $data 9]]
+
+    if {$fieldCount >= 28} {
+        dict set payload others [lindex $data 27]
+    }
+    if {$fieldCount >= 29} {
+        dict set payload eta [lindex $data 28]
+    }
+
+    return [dict create ok 1 event site.upload.leader payload $payload]
+}
+
 proc ::dZSbot::SiteAdapter::ParseIoFtpdComplete {type data} {
 
     if {[catch {llength $data} fieldCount] || $fieldCount < 4} {
@@ -181,9 +380,12 @@ proc ::dZSbot::SiteAdapter::ParseIoFtpdComplete {type data} {
     set user ""
     set group ""
 
-    if {$fieldCount >= 11} {
+    if {[string match -nocase "COMPLETE_STAT_RACE_*" $type] && $fieldCount >= 11} {
         set user [lindex $data 9]
         set group [lindex $data 10]
+    } elseif {$fieldCount >= 9} {
+        set user [lindex $data 7]
+        set group [lindex $data 8]
     }
 
     set payload [dict create \
@@ -200,7 +402,155 @@ proc ::dZSbot::SiteAdapter::ParseIoFtpdComplete {type data} {
         user $user \
         group $group]
 
+    if {$fieldCount >= 5} {
+        dict set payload speed_kbps [lindex $data 4]
+        dict set payload avg_speed_kbps [lindex $data 4]
+    }
+    if {$fieldCount >= 6} {
+        dict set payload race_speed_kbps [lindex $data 5]
+    }
+    if {$fieldCount >= 7} {
+        dict set payload duration_seconds [lindex $data 6]
+    }
+
     return [dict create ok 1 event site.upload.complete payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::ParseIoFtpdBadFile {type data} {
+
+    if {[catch {llength $data} fieldCount] || $fieldCount < 5} {
+        return [dict create ok 0 error "invalid BAD_FILE payload"]
+    }
+
+    set path [lindex $data 0]
+    set release [lindex $data 1]
+    set payload [dict create \
+        adapter ioftpd \
+        source ioFTPD \
+        action badfile \
+        bad_type $type \
+        reason [BadFileReason $type] \
+        path $path \
+        release $release \
+        relname $release \
+        section [InferSection $path] \
+        user [lindex $data 2] \
+        group [lindex $data 3] \
+        file [lindex $data 4]]
+
+    return [dict create ok 1 event site.upload.badfile payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::ParseIoFtpdNfo {data} {
+
+    if {[catch {llength $data} fieldCount] || $fieldCount < 5} {
+        return [dict create ok 0 error "invalid NFO payload"]
+    }
+
+    set path [lindex $data 0]
+    set release [lindex $data 3]
+    set payload [dict create \
+        adapter ioftpd \
+        source ioFTPD \
+        action nfo \
+        path $path \
+        release $release \
+        relname $release \
+        section [InferSection $path] \
+        user [lindex $data 1] \
+        group [lindex $data 2] \
+        file [lindex $data 4]]
+
+    return [dict create ok 1 event site.upload.nfo payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::ParseIoFtpdDoubleSfv {data} {
+
+    if {[catch {llength $data} fieldCount] || $fieldCount < 5} {
+        return [dict create ok 0 error "invalid DOUBLESFV payload"]
+    }
+
+    set path [lindex $data 0]
+    set release [lindex $data 3]
+    set payload [dict create \
+        adapter ioftpd \
+        source ioFTPD \
+        action doublesfv \
+        path $path \
+        release $release \
+        relname $release \
+        section [InferSection $path] \
+        user [lindex $data 1] \
+        group [lindex $data 2] \
+        file [lindex $data 4]]
+
+    return [dict create ok 1 event site.upload.doublesfv payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::ParseIoFtpdSpeedTest {data} {
+
+    if {[catch {llength $data} fieldCount] || $fieldCount < 6} {
+        return [dict create ok 0 error "invalid SPEEDTEST payload"]
+    }
+
+    set path [lindex $data 0]
+    set payload [dict create \
+        adapter ioftpd \
+        source ioFTPD \
+        action speedtest \
+        path $path \
+        release [file tail [string trimright $path "/"]] \
+        section [InferSection $path] \
+        user [lindex $data 1] \
+        group [lindex $data 2] \
+        tagline [lindex $data 3] \
+        speed_kbps [lindex $data 4] \
+        size_mb [lindex $data 5]]
+
+    return [dict create ok 1 event site.upload.speedtest payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::ParseIoFtpdIncomplete {data} {
+
+    if {[catch {llength $data} fieldCount] || $fieldCount < 4} {
+        return [dict create ok 0 error "invalid INCOMPLETE payload"]
+    }
+
+    set path [lindex $data 0]
+    set release [lindex $data 3]
+    set payload [dict create \
+        adapter ioftpd \
+        source ioFTPD \
+        action incomplete \
+        path $path \
+        release $release \
+        relname $release \
+        section [InferSection $path] \
+        user [lindex $data 1] \
+        group [lindex $data 2]]
+
+    return [dict create ok 1 event site.upload.incomplete payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::BadFileReason {type} {
+
+    switch -nocase -- $type {
+        BAD_FILE_0SIZE {return "0size"}
+        BAD_FILE_CRC {return "badcrc"}
+        BAD_FILE_BITRATE {return "badbitrate"}
+        BAD_FILE_DISALLOWED {return "badfiletype"}
+        BAD_FILE_DUPENFO {return "dupenfo"}
+        BAD_FILE_GENRE {return "badgenre"}
+        BAD_FILE_NOSFV {return "nosfv"}
+        BAD_FILE_SFV {return "badsfv"}
+        BAD_FILE_WRONGDIR {return "wrongdir"}
+        BAD_FILE_YEAR {return "badyear"}
+        BAD_FILE_ZIP {return "badzip"}
+        BAD_FILE_ZIPNFO {return "badzipnfo"}
+        BAD_FILE_DUPERELEASE {return "dupefile"}
+    }
+
+    return [string tolower [string map [list BAD_FILE_ ""] $type]]
 }
 
 proc ::dZSbot::SiteAdapter::InferSection {path} {
@@ -241,6 +591,74 @@ proc ::dZSbot::SiteAdapter::InferSection {path} {
     }
 
     return UNKNOWN
+}
+
+proc ::dZSbot::SiteAdapter::SectionMatches {section allowed} {
+
+    set section [NormalizeSection $section]
+    set allowed [NormalizeSection $allowed]
+
+    if {$section eq "" || $allowed eq ""} {
+        return 0
+    }
+
+    if {[string equal -nocase $allowed $section]} {
+        return 1
+    }
+
+    if {[string first "*" $allowed] >= 0 && [string match -nocase $allowed $section]} {
+        return 1
+    }
+
+    set sectionFamily [SectionFamily $section]
+    set allowedFamily [SectionFamily $allowed]
+    if {$sectionFamily ne "" && $allowedFamily ne "" && $sectionFamily eq $allowedFamily} {
+        return 1
+    }
+
+    foreach delimiter {- _ .} {
+        if {[string match -nocase "${allowed}${delimiter}*" $section]} {
+            return 1
+        }
+    }
+
+    return 0
+}
+
+proc ::dZSbot::SiteAdapter::NormalizeSection {section} {
+
+    return [string toupper [string trim $section " \t\r\n/"]]
+}
+
+proc ::dZSbot::SiteAdapter::SectionFamily {section} {
+
+    set section [NormalizeSection $section]
+
+    switch -glob -- $section {
+        MOVIE - MOVIE-* - MOVIES - MOVIES-* - UHD - UHD-* {
+            return MOVIES
+        }
+        TV - TV-* {
+            return TV
+        }
+        MUSIC - MUSIC-* - MUSiC - MUSiC-* - MP3 - MP3-* - FLAC - FLAC-* {
+            return MUSIC
+        }
+        AUDIOBOOK - AUDIOBOOK-* - AUDIOBOOKS - AUDIOBOOKS-* {
+            return AUDIOBOOKS
+        }
+        GAME - GAME-* - GAMES - GAMES-* - PC - PC-* {
+            return GAMES
+        }
+        CONSOLE - CONSOLE-* {
+            return CONSOLE
+        }
+        EBOOK - EBOOK-* - EBOOKS - EBOOKS-* {
+            return EBOOKS
+        }
+    }
+
+    return $section
 }
 
 proc ::dZSbot::SiteAdapter::ImportNxPreLine {line} {

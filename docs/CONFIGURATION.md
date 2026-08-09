@@ -106,9 +106,20 @@ also independently themeable:
 ```tcl
 ::dZSbot::Config::Set theme.template.pre.announce.classic "%c1{{pre_type}}: %c2{{release}} | %c3{{section}} | {group} | {files}F/{size}"
 ::dZSbot::Config::Set theme.template.pre.result "%c1{{prefix}}: %c2{{release}} | %c3{{section}} | {age} ago | {user}/{group} | {size} | {files}F"
-::dZSbot::Config::Set theme.template.pre.activity "%c1{RACE}: \[%c3{{section}}\] %c2{{release}} | {delay}s: {activity}"
+::dZSbot::Config::Set theme.template.pre.activity "%tag{{section}}%tag{RACER} :: %c2{{release}} :: {racer} :: {speed_compact}"
 ::dZSbot::Config::Set theme.template.pre.stats.header "%c1{PRE {title} Stats}: %c2{{label}} | %c3{{releases} releases} | {files}F | {size}"
 ::dZSbot::Config::Set theme.template.pre.stats.top "%c1{PRE Top {label}}: %c2{{entries}}"
+::dZSbot::Config::Set theme.template.upload.newdir "%tag{{tag}}%tag{{section}} :: %c2{{release}} :: {user} :: {files_label}"
+::dZSbot::Config::Set theme.template.upload.first "%tag{{section}}%tag{FIRST} in %c2{{release}} by {user} - {speed_compact} :: release size - {size_compact} ::"
+::dZSbot::Config::Set theme.template.upload.half "%tag{{section}}%tag{HALF} :: %c2{{release}} :: {user} :: with {files_label} :: {percent} :: {size_compact} :: {speed_compact}{others_segment}{eta_segment}"
+::dZSbot::Config::Set theme.template.upload.racer "%tag{{section}}%tag{RACER} :: %c2{{release}} :: {user} :: {speed_compact}"
+::dZSbot::Config::Set theme.template.upload.leader "%tag{{section}}%tag{LEADER} :: %c2{{release}} :: {user}"
+::dZSbot::Config::Set theme.template.upload.complete "%tag{{tag}}%tag{{section}} :: %c2{{release}} :: {files_label} :: {size_compact}{duration_segment}{speed_segment} :: {user}"
+::dZSbot::Config::Set theme.template.upload.badfile "%tag{{reason}} :: %c4{{user}} :: %c2{{release}} :: {file}"
+::dZSbot::Config::Set theme.template.upload.nfo "%tag{{section}}%tag{NFO} in %c2{{release}} by {user} - {file} ::"
+::dZSbot::Config::Set theme.template.upload.doublesfv "%tag{DOUBLESFV} :: %c4{{user}} :: %c2{{release}} :: {file}"
+::dZSbot::Config::Set theme.template.upload.speedtest "%tag{SPEED} :: {user} :: {size_compact} :: {speed_compact} ::"
+::dZSbot::Config::Set theme.template.upload.incomplete "%tag{INCOMPLETE}%tag{{section}} %c4{{release}} by {user} ::"
 ```
 
 ## Module Configs
@@ -129,6 +140,7 @@ Current module config files:
 - `config/modules/retention.conf`
 - `config/modules/site.conf`
 - `config/modules/tv.conf`
+- `config/modules/upload.conf`
 
 Examples:
 

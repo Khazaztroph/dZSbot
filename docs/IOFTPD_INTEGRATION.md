@@ -131,19 +131,48 @@ dZSbot also parses normal ioFTPD log lines from the same log watcher:
 
 ```text
 NEWDIR: "user" "group" "/SECTION/Release-GROUP" "realpath"
+UPDATE_*: ...
+RACE_*: ...
+NEWLEADER_*: ...
+HALFWAY_RACE_*: ...
+HALFWAY_NORACE_*: ...
 COMPLETE_STAT_RACE_FLAC: /SECTION/Release-GROUP/ Release-GROUP 82865 5 ...
+BAD_FILE_CRC: ...
+BAD_FILE_0SIZE: ...
+NFO: ...
+DOUBLESFV: ...
+SPEEDTEST: ...
+INCOMPLETE: ...
 ```
 
 These publish normalized `site.newdir` and `site.upload.complete` events. The
 Upload module announces them to `upload.announce.channel` and metadata modules
 such as IMDb/Music can react to `site.newdir`.
+For `COMPLETE_STAT_RACE_*`, dZSbot reads ioNiNJA's average upload speed
+(`a_avgspeed`) and adds it to the IRC complete line.
 
 Config:
 
 ```tcl
 ::dZSbot::Config::Set upload.announce.enabled 1
 ::dZSbot::Config::Set upload.announce.channel "#pre"
-::dZSbot::Config::Set upload.announce.events {newdir complete}
+::dZSbot::Config::Set upload.announce.events {newdir first half racer leader complete badfile nfo doublesfv speedtest incomplete}
+```
+
+Example complete output:
+
+```text
+[COMPLETE][TV-1080P] :: Release-GROUP :: 15f :: 1.36GB :: 1m 46s :: avg. 7.36MB/s :: user
+```
+
+Example integrity/error output:
+
+```text
+[badcrc] :: user :: Release-GROUP :: broken.r00
+[0size] :: user :: Release-GROUP :: empty.r00
+[MOVIE-1080P][NFO] in Release-GROUP by user - release.nfo ::
+[DOUBLESFV] :: user :: Release-GROUP :: release.sfv
+[INCOMPLETE][MOVIE-1080P] Release-GROUP by user ::
 ```
 
 ## Live Bandwidth

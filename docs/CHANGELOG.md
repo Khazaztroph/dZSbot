@@ -1,3 +1,14 @@
+## 2.1.2 - 2026-08-09
+
+- Added ioNiNJA-style upload announcements for FIRST, HALF, RACE, LEADER,
+  COMPLETE, BAD_FILE/CRC, NFO, DOUBLESFV, SPEEDTEST and INCOMPLETE events.
+- Improved section matching so movie and TV variants such as `MOVIE-2160P` and
+  `TV-1080P` use the correct IMDb/TV lookup path.
+- Changed the public release default PRE backend to TSV so new installs work
+  without MySQL, while keeping MySQL and TSV fallback support available.
+- Cleaned the release package so ioFTPD-only maintenance scripts and local
+  runtime/database files are not included.
+
 ## 2.1.1 - 2026-08-04
 
 - Fixed `!pres` and `!pre` in MySQL mode when PRE import had written rows to

@@ -154,7 +154,7 @@ proc ::dZSbot::Modules::TV::ShouldLookupSection {section} {
 
     set sections [::dZSbot::Config::Get tv.announce.sections {TV}]
     foreach allowed $sections {
-        if {[string equal -nocase $allowed $section]} {
+        if {[::dZSbot::SiteAdapter::SectionMatches $section $allowed]} {
             return 1
         }
     }

@@ -176,7 +176,7 @@ proc ::dZSbot::Modules::IMDb::ShouldLookupSection {section} {
 
     set sections [::dZSbot::Config::Get imdb.announce.sections {MOVIES TV}]
     foreach allowed $sections {
-        if {[string equal -nocase $allowed $section]} {
+        if {[::dZSbot::SiteAdapter::SectionMatches $section $allowed]} {
             return 1
         }
     }

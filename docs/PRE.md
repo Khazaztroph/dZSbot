@@ -160,8 +160,8 @@ intervals.
 Example output:
 
 ```text
-RACE: [MUSIC] Release-GROUP | 5s: 2@1.50 MB/s
-RACE: [MUSIC] Release-GROUP | 10s: 3@2.10 MB/s
+[MUSIC][RACER] :: Release-GROUP :: 2 user/s :: 1.50MB/s
+[MUSIC][RACER] :: Release-GROUP :: racer :: 2.10MB/s
 ```
 
 With `pre.activity.only_release` enabled, dZSbot matches `ioftpd who` paths

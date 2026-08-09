@@ -7,11 +7,17 @@ package require http
 if {![::dZSbot::Modules::IMDb::ShouldLookupSection MOVIES]} {
     error "Expected IMDb announce to handle MOVIES"
 }
+if {![::dZSbot::Modules::IMDb::ShouldLookupSection MOVIE-2160P]} {
+    error "Expected IMDb announce to handle MOVIE-2160P"
+}
 if {[::dZSbot::Modules::IMDb::ShouldLookupSection TV]} {
     error "Expected IMDb announce not to handle TV"
 }
 if {![::dZSbot::Modules::TV::ShouldLookupSection TV]} {
     error "Expected TV announce to handle TV"
+}
+if {![::dZSbot::Modules::TV::ShouldLookupSection TV-1080P]} {
+    error "Expected TV announce to handle TV-1080P"
 }
 if {[::dZSbot::Modules::TV::ShouldLookupSection MOVIES]} {
     error "Expected TV announce not to handle MOVIES"
