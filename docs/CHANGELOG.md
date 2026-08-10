@@ -2,6 +2,8 @@
 
 - Added ioNiNJA-style upload announcements for FIRST, HALF, RACE, LEADER,
   COMPLETE, BAD_FILE/CRC, NFO, DOUBLESFV, SPEEDTEST and INCOMPLETE events.
+- Kept RACE/RACER support available but disabled it in the default upload
+  announce event list to avoid noisy per-file race updates in IRC.
 - Improved section matching so movie and TV variants such as `MOVIE-2160P` and
   `TV-1080P` use the correct IMDb/TV lookup path.
 - Changed the public release default PRE backend to TSV so new installs work

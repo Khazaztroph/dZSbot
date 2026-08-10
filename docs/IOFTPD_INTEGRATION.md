@@ -156,7 +156,7 @@ Config:
 ```tcl
 ::dZSbot::Config::Set upload.announce.enabled 1
 ::dZSbot::Config::Set upload.announce.channel "#pre"
-::dZSbot::Config::Set upload.announce.events {newdir first half racer leader complete badfile nfo doublesfv speedtest incomplete}
+::dZSbot::Config::Set upload.announce.events {newdir first half leader complete badfile nfo doublesfv speedtest incomplete}
 ```
 
 Example complete output:
