@@ -21,6 +21,10 @@ eggdrop.exe -t eggdrop.conf
 
 Use `eggdrop.exe -m eggdrop.conf` only when creating a fresh Eggdrop userfile.
 
+## Do not overwrite your existing config files blindly.
+## Compare the new config files with your current setup and merge only the new
+## settings you need.
+
 ## Documentation
 
 - [Site Commands: !df and !bw](docs/SITE_COMMANDS.md)
