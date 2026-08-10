@@ -2,7 +2,7 @@ set root [file normalize [pwd]]
 
 source [file join $root dZSbot.tcl]
 
-set requestTestFile [file join $root runtime test-requests-module.tsv]
+set requestTestFile [file join $root runtime "test-requests-module-[pid].tsv"]
 catch {file delete $requestTestFile}
 ::dZSbot::Config::Set request.storage $requestTestFile
 ::dZSbot::Config::Set requests.list_limit 5

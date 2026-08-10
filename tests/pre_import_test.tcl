@@ -1,13 +1,19 @@
 set root [file normalize [pwd]]
 
+package require sqlite3
+
 source [file join $root dZSbot.tcl]
 
-set sourceDb [file join $root runtime test-nxtools-pres.db]
-set targetFile [file join $root runtime test-pre-import.tsv]
+if {[llength [info commands sqlite3]] == 0} {
+    puts "Skipping nxTools import test: sqlite3 Tcl command is unavailable in this runtime"
+    return
+}
+
+set sourceDb [file join $root runtime "test-nxtools-pres-[pid].db"]
+set targetFile [file join $root runtime "test-pre-import-[pid].tsv"]
 catch {file delete $sourceDb}
 catch {file delete $targetFile}
 
-package require sqlite3
 sqlite3 db $sourceDb
 db eval {
     CREATE TABLE Pres(

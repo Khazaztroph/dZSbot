@@ -2,11 +2,12 @@ set root [file normalize [pwd]]
 
 source [file join $root dZSbot.tcl]
 
-set preTestFile [file join $root runtime test-pre-stats.tsv]
+set preTestFile [file join $root runtime "test-pre-stats-[pid].tsv"]
 catch {file delete $preTestFile}
 ::dZSbot::Config::Set pre.storage $preTestFile
 ::dZSbot::Config::Set pre.daily_stats.periods {day week month}
 ::dZSbot::Config::Set pre.daily_stats.top_limit 3
+::dZSbot::Config::Set theme.irc.colors 0
 
 set now [clock seconds]
 set old [expr {$now - (48 * 3600)}]
@@ -28,13 +29,13 @@ set joined [join $lines "\n"]
 if {[string first "4 releases" $joined] < 0} {
     error "Expected daily stats to include only recent releases"
 }
-if {[string first "PRE Day Stats: last 24h | 4 releases" $joined] < 0} {
+if {[string first "PRE Daily Stats: last 24h | 4 releases" $joined] < 0} {
     error "Expected day stats header"
 }
-if {[string first "PRE Week Stats: last 7d | 5 releases" $joined] < 0} {
+if {[string first "PRE Weekly Stats: last 7d | 5 releases" $joined] < 0} {
     error "Expected week stats to include 48h-old release"
 }
-if {[string first "PRE Month Stats: last 30d | 6 releases" $joined] < 0} {
+if {[string first "PRE Monthly Stats: last 30d | 6 releases" $joined] < 0} {
     error "Expected month stats to include 10d-old release"
 }
 if {[string first "GRP (3)" $joined] < 0} {
@@ -48,6 +49,6 @@ if {[string first "MUSIC (2)" $joined] < 0} {
 set themedLines [::dZSbot::Modules::Pre::DailyStatsLines]
 foreach themedLine $themedLines {
     if {[string first "\003" $themedLine] < 0} {
-        error "Expected every PRE stats line to use the active theme: $themedLine"
+        error "Expected every PRE stats line to include color when colors are enabled: $themedLine"
     }
 }

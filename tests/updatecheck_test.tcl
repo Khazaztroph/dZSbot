@@ -18,7 +18,7 @@ if {[::dZSbot::UpdateCheck::CompareVersions 2.0.6 2.0.7] != -1} {
     error "Expected 2.0.6 to be older than 2.0.7"
 }
 
-set cacheFile [file join $root runtime test-update-check.tsv]
+set cacheFile [file join $root runtime "test-update-check-[pid].tsv"]
 catch {file delete $cacheFile}
 ::dZSbot::Config::Set update_check.cache_file $cacheFile
 ::dZSbot::Config::Set update_check.channel ""

@@ -176,6 +176,10 @@ proc ::dZSbot::SiteAdapter::ParseIoFtpdLine {line} {
         return [ParseIoFtpdIncomplete $data]
     }
 
+    if {[regexp {(WIPE|CLOSE|OPEN|GIVE|TAKE|APPROVE|APPROVEADD|APPROVEDEL|NUKE|UNNUKE|REQUEST|REQFILL|REQDEL|REQWIPE|NEWDATE):[ \t]*(.*)$} $line -> type data]} {
+        return [ParseNxToolsLegacy $type $data]
+    }
+
     return [dict create ok 0 error "not a supported ioFTPD event line"]
 }
 
@@ -530,6 +534,176 @@ proc ::dZSbot::SiteAdapter::ParseIoFtpdIncomplete {data} {
         group [lindex $data 2]]
 
     return [dict create ok 1 event site.upload.incomplete payload $payload]
+}
+
+proc ::dZSbot::SiteAdapter::ParseNxToolsLegacy {type data} {
+
+    if {[catch {llength $data} fieldCount]} {
+        return [dict create ok 0 error "invalid $type payload"]
+    }
+
+    set type [string toupper $type]
+    set eventName [string tolower $type]
+    set payload [dict create \
+        adapter ioftpd \
+        source nxTools \
+        action $eventName \
+        type $type]
+
+    switch -- $type {
+        WIPE {
+            if {$fieldCount < 6} {
+                return [dict create ok 0 error "invalid WIPE payload"]
+            }
+            set path [lindex $data 0]
+            dict set payload path $path
+            dict set payload release [file tail [string trimright $path "/"]]
+            dict set payload relname [dict get $payload release]
+            dict set payload section [InferSection $path]
+            dict set payload user [lindex $data 1]
+            dict set payload group [lindex $data 2]
+            dict set payload dirs [lindex $data 3]
+            dict set payload files [lindex $data 4]
+            dict set payload size [lindex $data 5]
+        }
+        CLOSE {
+            if {$fieldCount < 3} {
+                return [dict create ok 0 error "invalid CLOSE payload"]
+            }
+            dict set payload user [lindex $data 0]
+            dict set payload u_name [lindex $data 0]
+            dict set payload group [lindex $data 1]
+            dict set payload g_name [lindex $data 1]
+            dict set payload reason [lindex $data 2]
+            dict set payload sitename [::dZSbot::Config::Get site.name "site"]
+        }
+        OPEN {
+            if {$fieldCount < 4} {
+                return [dict create ok 0 error "invalid OPEN payload"]
+            }
+            dict set payload user [lindex $data 0]
+            dict set payload u_name [lindex $data 0]
+            dict set payload group [lindex $data 1]
+            dict set payload g_name [lindex $data 1]
+            dict set payload duration [lindex $data 2]
+            dict set payload reason [lindex $data 3]
+            dict set payload sitename [::dZSbot::Config::Get site.name "site"]
+        }
+        GIVE - TAKE {
+            if {$fieldCount < 4} {
+                return [dict create ok 0 error "invalid $type payload"]
+            }
+            dict set payload user [lindex $data 0]
+            dict set payload u_name [lindex $data 0]
+            dict set payload group [lindex $data 1]
+            dict set payload g_name [lindex $data 1]
+            dict set payload credits [lindex $data 2]
+            dict set payload target [lindex $data 3]
+        }
+        APPROVE {
+            if {$fieldCount < 3} {
+                return [dict create ok 0 error "invalid APPROVE payload"]
+            }
+            set path [lindex $data 0]
+            dict set payload path $path
+            dict set payload release [file tail [string trimright $path "/"]]
+            dict set payload relname [dict get $payload release]
+            dict set payload section [InferSection $path]
+            dict set payload user [lindex $data 1]
+            dict set payload u_name [lindex $data 1]
+            dict set payload group [lindex $data 2]
+            dict set payload g_name [lindex $data 2]
+        }
+        APPROVEADD - APPROVEDEL {
+            if {$fieldCount < 3} {
+                return [dict create ok 0 error "invalid $type payload"]
+            }
+            dict set payload user [lindex $data 0]
+            dict set payload u_name [lindex $data 0]
+            dict set payload group [lindex $data 1]
+            dict set payload g_name [lindex $data 1]
+            dict set payload release [lindex $data 2]
+            dict set payload relname [lindex $data 2]
+            dict set payload section UNKNOWN
+        }
+        NUKE - UNNUKE {
+            if {$fieldCount < 9} {
+                return [dict create ok 0 error "invalid $type payload"]
+            }
+            set path [lindex $data 0]
+            dict set payload path $path
+            dict set payload release [file tail [string trimright $path "/"]]
+            dict set payload relname [dict get $payload release]
+            dict set payload section [InferSection $path]
+            dict set payload user [lindex $data 1]
+            dict set payload u_name [lindex $data 1]
+            dict set payload group [lindex $data 2]
+            dict set payload g_name [lindex $data 2]
+            dict set payload nuker [lindex $data 1]
+            dict set payload multiplier [lindex $data 3]
+            dict set payload reason [lindex $data 4]
+            dict set payload files [lindex $data 5]
+            dict set payload size [lindex $data 6]
+            dict set payload disks [lindex $data 7]
+            dict set payload nukees [lindex $data 8]
+        }
+        REQUEST {
+            if {$fieldCount < 4} {
+                return [dict create ok 0 error "invalid REQUEST payload"]
+            }
+            dict set payload user [lindex $data 0]
+            dict set payload u_name [lindex $data 0]
+            dict set payload group [lindex $data 1]
+            dict set payload g_name [lindex $data 1]
+            dict set payload request [lindex $data 2]
+            dict set payload request_id [lindex $data 3]
+            dict set payload section REQUESTS
+        }
+        REQFILL - REQDEL {
+            if {$fieldCount < 7} {
+                return [dict create ok 0 error "invalid $type payload"]
+            }
+            dict set payload user [lindex $data 0]
+            dict set payload u_name [lindex $data 0]
+            dict set payload group [lindex $data 1]
+            dict set payload g_name [lindex $data 1]
+            dict set payload request [lindex $data 2]
+            dict set payload requester [lindex $data 3]
+            dict set payload u_requester [lindex $data 3]
+            dict set payload requester_group [lindex $data 4]
+            dict set payload request_id [lindex $data 5]
+            dict set payload age [lindex $data 6]
+            dict set payload section REQUESTS
+        }
+        REQWIPE {
+            if {$fieldCount < 6} {
+                return [dict create ok 0 error "invalid REQWIPE payload"]
+            }
+            dict set payload user [lindex $data 0]
+            dict set payload u_name [lindex $data 0]
+            dict set payload group [lindex $data 1]
+            dict set payload g_name [lindex $data 1]
+            dict set payload request [lindex $data 2]
+            dict set payload request_id [lindex $data 3]
+            dict set payload age [lindex $data 4]
+            dict set payload max_age [lindex $data 5]
+            dict set payload section REQUESTS
+        }
+        NEWDATE {
+            if {$fieldCount < 3} {
+                return [dict create ok 0 error "invalid NEWDATE payload"]
+            }
+            set path [lindex $data 0]
+            dict set payload path $path
+            dict set payload release [file tail [string trimright $path "/"]]
+            dict set payload relname [dict get $payload release]
+            dict set payload section [InferSection $path]
+            dict set payload area [lindex $data 1]
+            dict set payload description [lindex $data 2]
+        }
+    }
+
+    return [dict create ok 1 event "site.legacy.$eventName" payload $payload]
 }
 
 proc ::dZSbot::SiteAdapter::BadFileReason {type} {

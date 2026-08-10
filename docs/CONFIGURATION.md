@@ -107,9 +107,12 @@ also independently themeable:
 ::dZSbot::Config::Set theme.template.pre.announce.classic "%c1{{pre_type}}: %c2{{release}} | %c3{{section}} | {group} | {files}F/{size}"
 ::dZSbot::Config::Set theme.template.pre.result "%c1{{prefix}}: %c2{{release}} | %c3{{section}} | {age} ago | {user}/{group} | {size} | {files}F"
 ::dZSbot::Config::Set theme.template.pre.activity "%tag{{section}}%tag{RACER} :: %c2{{release}} :: {racer} :: {speed_compact}"
-::dZSbot::Config::Set theme.template.pre.stats.header "%c1{PRE {title} Stats}: %c2{{label}} | %c3{{releases} releases} | {files}F | {size}"
+::dZSbot::Config::Set theme.template.pre.stats.header "%c1{PRE {title} Stats}: %c2{{label}} | %c3{{releases} releases} | {files}F | %c4{{size}}"
 ::dZSbot::Config::Set theme.template.pre.stats.top "%c1{PRE Top {label}}: %c2{{entries}}"
-::dZSbot::Config::Set theme.template.upload.newdir "%tag{{tag}}%tag{{section}} :: %c2{{release}} :: {user} :: {files_label}"
+::dZSbot::Config::Set theme.template.requests.added "%tag{req} %bold{{u_name}} requests %c2{{request}}."
+::dZSbot::Config::Set theme.template.requests.filled "%tag{req}%tag{FILL} %bold{{u_name}} filled %c2{{request}} for %bold{{u_requester}}."
+::dZSbot::Config::Set theme.template.requests.deleted "%tag{req}%tag{DEL} %bold{{u_name}} deleted %c2{{request}}."
+::dZSbot::Config::Set theme.template.upload.newdir "%tag{{tag}}%tag{{section}} :: %c2{{release}} ::"
 ::dZSbot::Config::Set theme.template.upload.first "%tag{{section}}%tag{FIRST} in %c2{{release}} by {user} - {speed_compact} :: release size - {size_compact} ::"
 ::dZSbot::Config::Set theme.template.upload.half "%tag{{section}}%tag{HALF} :: %c2{{release}} :: {user} :: with {files_label} :: {percent} :: {size_compact} :: {speed_compact}{others_segment}{eta_segment}"
 ::dZSbot::Config::Set theme.template.upload.racer "%tag{{section}}%tag{RACER} :: %c2{{release}} :: {user} :: {speed_compact}"
@@ -122,6 +125,12 @@ also independently themeable:
 ::dZSbot::Config::Set theme.template.upload.incomplete "%tag{INCOMPLETE}%tag{{section}} %c4{{release}} by {user} ::"
 ```
 
+The default theme also includes `theme.template.legacy.*` entries based on old
+pzs-ng/ioNiNJA announce names, such as `legacy.wipe`, `legacy.nuke`,
+`legacy.unnuke`, `legacy.newdate`, `legacy.search.*`, `legacy.nukes.*` and
+`legacy.prebw`. These are template-ready for compatibility modules even when a
+specific parser or command has not been implemented yet.
+
 ## Module Configs
 
 ```text
@@ -133,6 +142,7 @@ The module manager loads a module config before loading the module itself.
 Current module config files:
 
 - `config/modules/imdb.conf`
+- `config/modules/legacy.conf`
 - `config/modules/music.conf`
 - `config/modules/nfo.conf`
 - `config/modules/pre.conf`
@@ -184,6 +194,17 @@ OAuth endpoint defaults:
 # config/modules/requests.conf
 ::dZSbot::Config::Set requests.storage [file join $::dZSbot::Root database requests.tsv]
 ::dZSbot::Config::Set requests.list_limit 10
+```
+
+Upload announces can be enabled globally, filtered by event name, and toggled
+one by one. Current defaults announce important state changes and integrity
+events, while leaving noisy per-file `racer` output disabled:
+
+```tcl
+::dZSbot::Config::Set upload.announce.enabled 1
+::dZSbot::Config::Set upload.announce.events {newdir first half leader complete badfile nfo doublesfv speedtest incomplete}
+::dZSbot::Config::Set upload.announce.event.racer.enabled 0
+::dZSbot::Config::Set upload.announce.event.complete.enabled 1
 ```
 
 ```tcl

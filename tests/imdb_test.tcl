@@ -2,6 +2,8 @@ set root [file normalize [pwd]]
 
 source [file join $root dZSbot.tcl]
 
+::dZSbot::Config::Set theme.irc.colors 0
+
 set sample {{"Title":"Blade Runner","Year":"1982","Rated":"R","Released":"25 Jun 1982","Runtime":"117 min","Genre":"Action, Drama, Sci-Fi","Director":"Ridley Scott","Writer":"Hampton Fancher, David Webb Peoples","Actors":"Harrison Ford, Rutger Hauer, Sean Young","Plot":"A blade runner must pursue and terminate four replicants who stole a ship in space and have returned to Earth to find their creator.","Language":"English","Country":"United States","Awards":"Nominated for 2 Oscars. 13 wins & 22 nominations total","Poster":"N/A","Ratings":[],"Metascore":"84","imdbRating":"8.1","imdbVotes":"842,000","imdbID":"tt0083658","Type":"movie","DVD":"N/A","BoxOffice":"$32,914,489","Production":"N/A","Website":"N/A","Response":"True"}}
 
 set parsed [::dZSbot::Modules::IMDb::Parser::ParseTitle $sample]

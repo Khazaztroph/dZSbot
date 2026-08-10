@@ -611,20 +611,20 @@ proc ::dZSbot::Modules::Pre::DailyStatsPeriodSpec {period} {
     set key [string tolower [string trim $period]]
 
     if {$key in {day daily 24h 24}} {
-        return [dict create key day title Day label "last 24h" hours 24]
+        return [dict create key day title Daily label "last 24h" hours 24]
     }
     if {$key in {week weekly 7d 7days 168h 168}} {
-        return [dict create key week title Week label "last 7d" hours 168]
+        return [dict create key week title Weekly label "last 7d" hours 168]
     }
     if {$key in {month monthly 30d 30days 720h 720}} {
-        return [dict create key month title Month label "last 30d" hours 720]
+        return [dict create key month title Monthly label "last 30d" hours 720]
     }
     if {[string is integer -strict $key] && $key > 0} {
         return [dict create key "${key}h" title "${key}h" label "last ${key}h" hours $key]
     }
 
     ::dZSbot::Logger::Warn "Unknown PRE stats period '$period', using day."
-    return [dict create key day title Day label "last 24h" hours 24]
+    return [dict create key day title Daily label "last 24h" hours 24]
 }
 
 proc ::dZSbot::Modules::Pre::RowsSince {since} {

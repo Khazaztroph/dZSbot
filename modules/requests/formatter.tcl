@@ -27,7 +27,13 @@ proc ::dZSbot::Modules::Requests::Formatter::Age {timestamp} {
 
 proc ::dZSbot::Modules::Requests::Formatter::Added {entry} {
 
-    return "Request added: [dict get $entry request]"
+    return [::dZSbot::Theme::Render requests.added [dict create \
+        section REQUESTS \
+        request [dict get $entry request] \
+        u_name [dict get $entry nick] \
+        user [dict get $entry nick] \
+        g_name "" \
+        group ""] "Request added: [dict get $entry request]"]
 }
 
 proc ::dZSbot::Modules::Requests::Formatter::Header {count} {
@@ -46,10 +52,24 @@ proc ::dZSbot::Modules::Requests::Formatter::Line {entry index} {
 
 proc ::dZSbot::Modules::Requests::Formatter::Deleted {entry} {
 
-    return "Request deleted: [dict get $entry request]"
+    return [::dZSbot::Theme::Render requests.deleted [dict create \
+        section REQUESTS \
+        request [dict get $entry request] \
+        u_name [dict get $entry nick] \
+        user [dict get $entry nick] \
+        g_name "" \
+        group ""] "Request deleted: [dict get $entry request]"]
 }
 
 proc ::dZSbot::Modules::Requests::Formatter::Filled {entry} {
 
-    return "Request filled: [dict get $entry request] | by [dict get $entry filled_by]"
+    return [::dZSbot::Theme::Render requests.filled [dict create \
+        section REQUESTS \
+        request [dict get $entry request] \
+        u_name [dict get $entry filled_by] \
+        user [dict get $entry filled_by] \
+        u_requester [dict get $entry nick] \
+        requester [dict get $entry nick] \
+        g_name "" \
+        group ""] "Request filled: [dict get $entry request] | by [dict get $entry filled_by]"]
 }

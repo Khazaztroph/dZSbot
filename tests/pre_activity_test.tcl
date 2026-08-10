@@ -21,6 +21,7 @@ set ::scheduledTimers {}
 
 source [file join $root dZSbot.tcl]
 
+::dZSbot::Config::Set theme.irc.colors 0
 ::dZSbot::Config::Set pre.activity.intervals {1 2}
 ::dZSbot::Config::Set pre.activity.channel "#pre"
 

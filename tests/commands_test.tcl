@@ -6,11 +6,11 @@ proc isop {nick chan} {
 
 source [file join $root dZSbot.tcl]
 
-set requestTestFile [file join $root runtime test-requests.db]
+set requestTestFile [file join $root runtime "test-requests-[pid].db"]
 catch {file delete $requestTestFile}
 ::dZSbot::Config::Set request.storage $requestTestFile
 
-set preTestFile [file join $root runtime test-pre.tsv]
+set preTestFile [file join $root runtime "test-pre-[pid].tsv"]
 catch {file delete $preTestFile}
 ::dZSbot::Config::Set pre.storage $preTestFile
 

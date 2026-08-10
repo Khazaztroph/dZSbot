@@ -29,7 +29,7 @@ if {[dict get $bw active] != 1 || [dict get $bw total] != 2} {
     error "Unexpected BW sample: $bw"
 }
 
-set cacheFile [file join $root runtime test-bw.tsv]
+set cacheFile [file join $root runtime "test-bw-[pid].tsv"]
 set fh [open $cacheFile w]
 fconfigure $fh -encoding utf-8 -translation lf
 set now [clock seconds]
@@ -85,7 +85,7 @@ if {![dict get $df ok]} {
     error "Expected runtime disk free to be readable: $df"
 }
 
-set dfCacheFile [file join $root runtime test-df.tsv]
+set dfCacheFile [file join $root runtime "test-df-[pid].tsv"]
 set fh [open $dfCacheFile w]
 fconfigure $fh -encoding utf-8 -translation lf
 puts $fh "# dZSbot-df-v1\t$now"

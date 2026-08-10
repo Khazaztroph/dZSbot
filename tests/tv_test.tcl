@@ -2,6 +2,8 @@ set root [file normalize [pwd]]
 
 source [file join $root dZSbot.tcl]
 
+::dZSbot::Config::Set theme.irc.colors 0
+
 package require http
 
 if {![::dZSbot::Modules::IMDb::ShouldLookupSection MOVIES]} {

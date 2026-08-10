@@ -130,18 +130,20 @@ The legacy `pre.daily_stats.window_hours` setting is still used when
 Example output:
 
 ```text
-PRE Day Stats: last 24h | 32 releases | 418F | 88.20 GB
-PRE Top Day Groups: #1 GROUP (12) | #2 OTHER (8)
-PRE Top Day Sections: #1 MUSIC (15) | #2 MOVIES (10)
-PRE Week Stats: last 7d | 188 releases | 2210F | 412.40 GB
-PRE Top Week Groups: #1 GROUP (53) | #2 OTHER (31)
-PRE Top Week Sections: #1 MUSIC (90) | #2 MOVIES (50)
+PRE Daily Stats: last 24h | 32 releases | 418F | 88.20 GB
+PRE Top Daily Groups: #1 GROUP (12) | #2 OTHER (8)
+PRE Top Daily Sections: #1 MUSIC (15) | #2 MOVIES (10)
+PRE Weekly Stats: last 7d | 188 releases | 2210F | 412.40 GB
+PRE Top Weekly Groups: #1 GROUP (53) | #2 OTHER (31)
+PRE Top Weekly Sections: #1 MUSIC (90) | #2 MOVIES (50)
 ```
 
 The daily statistics lines use `theme.template.pre.stats.header` and
-`theme.template.pre.stats.top`. PRE database results and bandwidth activity use
-`theme.template.pre.result` and `theme.template.pre.activity`. All color slots
-follow the active theme and section-specific overrides.
+`theme.template.pre.stats.top`. Colors are enabled by default through
+`theme.irc.colors`; set it to `0` if a plain text IRC style is preferred. PRE
+database results and bandwidth activity use `theme.template.pre.result` and
+`theme.template.pre.activity`. All color slots follow the active theme and
+section-specific overrides.
 
 ## PRE Activity
 

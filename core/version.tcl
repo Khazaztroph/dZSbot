@@ -12,8 +12,8 @@
 namespace eval ::dZSbot {
 
     variable Name         "dZSbot"
-    variable Version      "2.1.2"
-    variable Build        "20260809"
+    variable Version      "2.1.3"
+    variable Build        "20260810"
 
     variable TclRequired  "8.6"
     variable EggRequired  "1.10"

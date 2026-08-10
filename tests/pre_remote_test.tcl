@@ -1,7 +1,7 @@
 set root [file normalize [pwd]]
 source [file join $root dZSbot.tcl]
 
-set preTestFile [file join $root runtime test-pre-remote.tsv]
+set preTestFile [file join $root runtime "test-pre-remote-[pid].tsv"]
 catch {file delete $preTestFile}
 ::dZSbot::Config::Set pre.backend "tsv"
 ::dZSbot::Config::Set pre.storage $preTestFile

@@ -305,6 +305,14 @@ proc ::dZSbot::Modules::Upload::FormatLine {eventName payload} {
 
 proc ::dZSbot::Modules::Upload::EventAllowed {eventName} {
 
+    set defaultEnabled 1
+    if {[string equal -nocase $eventName "racer"]} {
+        set defaultEnabled 0
+    }
+    if {![::dZSbot::Config::Get "upload.announce.event.$eventName.enabled" $defaultEnabled]} {
+        return 0
+    }
+
     foreach allowed [::dZSbot::Config::Get upload.announce.events {newdir first half racer leader complete badfile nfo doublesfv speedtest incomplete}] {
         if {[string equal -nocase $allowed $eventName]} {
             return 1

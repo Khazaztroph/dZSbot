@@ -1,9 +1,25 @@
+## 2.1.3 - 2026-08-10
+
+- Added a Legacy compatibility module for nxTools/ioNiNJA-style site events,
+  including wipe, close/open, give/take, approve, nuke/unnuke, request,
+  request fill/delete/wipe and newdate announces.
+- Added per-event legacy announce toggles through `config/modules/legacy.conf`.
+- Added pzs-ng/ioNiNJA-inspired legacy theme templates for compatibility
+  announces.
+- Updated request announce output to use the central theme renderer.
+- Enabled IRC colors by default in the default theme, while keeping
+  `theme.irc.colors 0` available for plain text output.
+- Refined PRE daily/weekly/monthly stats output to the cleaner
+  `PRE Daily Stats` / `PRE Top Daily Groups` / `PRE Top Daily Sections` style.
+
 ## 2.1.2 - 2026-08-09
 
 - Added ioNiNJA-style upload announcements for FIRST, HALF, RACE, LEADER,
   COMPLETE, BAD_FILE/CRC, NFO, DOUBLESFV, SPEEDTEST and INCOMPLETE events.
 - Kept RACE/RACER support available but disabled it in the default upload
   announce event list to avoid noisy per-file race updates in IRC.
+- Added per-event upload announce toggles and pzs-ng/ioNiNJA-style legacy
+  theme templates for future compatibility announces.
 - Improved section matching so movie and TV variants such as `MOVIE-2160P` and
   `TV-1080P` use the correct IMDb/TV lookup path.
 - Changed the public release default PRE backend to TSV so new installs work

@@ -1,7 +1,7 @@
 set root [file normalize [pwd]]
 source [file join $root dZSbot.tcl]
 
-set fallbackFile [file join $root runtime test-pre-mysql-fallback.tsv]
+set fallbackFile [file join $root runtime "test-pre-mysql-fallback-[pid].tsv"]
 catch {file delete $fallbackFile}
 
 ::dZSbot::Config::Set pre.backend "mysql"

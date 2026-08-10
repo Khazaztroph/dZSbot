@@ -2,6 +2,8 @@ set root [file normalize [pwd]]
 
 source [file join $root dZSbot.tcl]
 
+::dZSbot::Config::Set theme.irc.colors 0
+
 set policy [::dZSbot::SiteAdapter::Policy]
 
 if {[dict get $policy port] != 5420} {
@@ -143,6 +145,27 @@ if {[string first "DEATH_IN_AUGUST-GREET_THE_STORM-EP-CD-FLAC-2026-TOTENKVLT :: 
 }
 puts "Parsed ioFTPD COMPLETE: [dict get $parsedComplete payload]"
 
+foreach item [list \
+    [list {07-02-2026 10:11:35 NEWDATE: "/0DAY/2026-08-10" "0DAY" "Newdate 0DAY"} site.legacy.newdate "newdate" "0DAY"] \
+    [list {07-02-2026 10:12:35 WIPE: "/MOVIES/Old.Release-GROUP" "khaz" "MEV" "1" "15" "7340032"} site.legacy.wipe "wipe" "Old.Release-GROUP"] \
+    [list {07-02-2026 10:13:35 NUKE: "/MOVIES/Bad.Release-GROUP" "nuker" "STAFF" "3" "bad.pack" "12" "102400" "1" "user/10MB"} site.legacy.nuke "nuke" "bad.pack"] \
+    [list {07-02-2026 10:14:35 REQUEST: "tester" "USERS" "Wanted.Release.2026" "4"} site.legacy.request "req" "Wanted.Release.2026"] \
+    [list {07-02-2026 10:15:35 REQFILL: "filler" "USERS" "Wanted.Release.2026" "tester" "USERS" "4" "30"} site.legacy.reqfill "FILL" "Wanted.Release.2026"]] {
+    set parsedLegacy [::dZSbot::SiteAdapter::ParseIoFtpdLine [lindex $item 0]]
+    set expectedEvent [lindex $item 1]
+    if {![dict get $parsedLegacy ok] || [dict get $parsedLegacy event] ne $expectedEvent} {
+        error "Expected $expectedEvent from legacy line: $parsedLegacy"
+    }
+    set eventName [string range $expectedEvent [string length "site.legacy."] end]
+    set legacyLine [::dZSbot::Modules::Legacy::FormatLine $eventName [dict get $parsedLegacy payload]]
+    foreach expected [lrange $item 2 end] {
+        if {[string first $expected $legacyLine] < 0} {
+            error "Expected '$expected' in legacy announce: $legacyLine"
+        }
+    }
+    puts "Parsed legacy event $expectedEvent: [dict get $parsedLegacy payload]"
+}
+
 if {![::dZSbot::Modules::Upload::SectionAllowed TV-1080P]} {
     error "Expected upload announce to allow TV-1080P"
 }
@@ -150,7 +173,7 @@ if {![::dZSbot::Modules::Upload::SectionAllowed MOVIE-2160P]} {
     error "Expected upload announce to allow MOVIE-2160P"
 }
 
-set preTestFile [file join $root runtime test-nxpre.tsv]
+set preTestFile [file join $root runtime "test-nxpre-[pid].tsv"]
 catch {file delete $preTestFile}
 ::dZSbot::Config::Set pre.storage $preTestFile
 ::dZSbot::Config::Set imdb.announce.enabled 0
