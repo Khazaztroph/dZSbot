@@ -1,0 +1,159 @@
+#################################################
+# 2007-09-25:
+# Changed the way all of this works.
+#
+#
+
+#######
+# note that you cannot use decimals to format something.
+# it will format the text after lenght:
+
+################################################################
+# it's used like this: 
+# %fm10{%aZ} will format SiTENAME to 10 letter and add spaces to the end if it's smaller the 10 letters
+# %fm-10{%aZ} does the same except it adds spaces before the word.
+# both of them will cut of the word at 10 letters. so only 10letters will be shown.
+# no matter how long the name is. 
+#
+# you can also add more variables/letters/words to a formation
+# %fm57{%sBx%sc @ %sAfps}
+# would write out 640x245 @ 23.9fps
+# and format it.
+
+###COMPLETE MSG
+%al = Fastest user and speed "user from group @ speed"
+%aL = Slowest user and speed "user from group @ speed"
+
+#COMPLETE AND RACE (i THINK?)
+%ioNiNJA_VER    = ioNiNJA Version
+%sitename       = SiTENAME
+%racers         = Racers
+%user           = User
+%group          = Group
+%tagline        = Tagline 
+%complete_eta   = ETA (Time Left)
+%percentdone    = Percent Done so far
+%rtop           = Number Of Racers 
+%gtop           = Number Of Groups 
+%release        = RELEASEDIR
+%total_files    = Total Files In SFV or DiZ
+%files_uploaded = Total Files Uploaded
+%missing_files  = Missing Files 
+%estimated_size = Estimated Size
+%total_size     = Size of uploaded Files
+%file_name      = FileName of the uploaded file
+%average_speed  = Average Speed
+%race_duration  = Duration of race
+%r_avg_speed    = Total Speed 
+%progress_bar   = Progress Bar
+%time = Time in the format YEAR-MONTH-DAY HOUR:MIN:SEC (2008-04-20 21:02:01)
+
+#COMPLETE ONLY
+
+%fastest_upload = username from group @ speed
+%slowest_upload = username from groupname @ speed
+
+
+
+#USER STATS in complete and race msg
+%race_user_position = Rank
+%race_user_name     = User
+%race_user_group    = Group
+%race_user_files    = Files
+%race_user_size     = Size
+%race_user_percent  = Percent
+%race_user_speed    = speed
+
+# USERSTATS COMPLETE (ONLY AVALIBLE IN COMPLETE MSG)
+%race_user_dayup    = DAYUP 
+%race_user_wkup     = WKUP 
+%race_user_mnup     = MNUP
+%race_user_allup    = ALLUP
+
+
+#GROUP STATS
+%race_group_name     = Name
+%race_group_position = rank #
+%race_group_files    = # of uploaded files
+%race_group_size     = total size uploaded
+%race_group_percent  = percent uploaded
+%race_group_speed    = speed
+
+
+
+
+MP3 (avalible in both race and complete)
+%audio_artist          = ARITST 
+%audio_album           = ALBUM 
+%audio_bitrate         = BiTRATE 
+%audio_original        = ORIGINAL 
+%audio_padding         = PADDING
+%audio_duration        = DURATION
+%audio_genre           = GENRE
+%audio_mpeglayer       = MPEG LAYER
+%audio_lame_version    = LAME VERSION
+%audio_chanmode        = CHAN MODE
+%audio_lame_preset     = LAME PRESET
+%audio_samplerate      = SAMPLE RATE
+%audio_title           = SONG TITLE  
+%audio_track_nr        = TRACK NUMBER 
+%audio_vbr             = VBR (YES/NO)
+%audio_year            = YEAR
+%audio_vbr_old_or_new  = VBR-NEW/VBR-OLD
+
+
+
+IMDB
+%imdb_title         = TITLE
+%imdb_url           = URL
+%imdb_year          = YEAR
+%imdb_tv            = TV (DON't USE)
+%imdb_liftime       = TV SHOW LIFETIME (DON't USE)
+%imdb_ratbar        = RATING BAR (DON't USE) 
+%imdb_rating        = RATING 
+%imdb_votes         = VOTES
+%imdb_director      = Director
+%imdb_cast          = CAST (Don't USE) 
+%imdb_mpaa          = MPAA
+%imdb_runtime       = RUNTIME
+%imdb_country       = CONTRY(s)
+%imdb_language      = LANGUAGE(s)
+%imdb_color         = Color
+%imdb_genre         = GENRES
+%imdb_tagline       = TAGLINE
+%imdb_plot          = PLOT
+%imdb_usercomment   = USER COMMENT
+%imdb_awards        = AWARDS
+%imdb_opengross     = OPEN GROSS
+%imdb_opencountry   = OPEN COUNTRY
+%imdb_openday       = OPENDAY
+%imdb_openyear      = OPENYEAR
+%imdb_openscreens   = OPENSCREENS
+%imdb_screens       = SCREENS (Most amount of screens the movie has had)
+%imdb_budget        = BUDGET
+%imdb_top250        = Top250
+
+MV (still experimental AND IN COMPLETE MSG)
+%mv_genre  =  GENRE 
+%mv_artist = ARTIST
+%mv_year  = YEAR
+
+
+SAMPLE (IN COMPLETE MSG)
+%video_codec              = ViDEO CODEC  
+%video_framerate          = ViDEO FRAME RATE
+%video_bitrate            = ViDEO BitRATE
+%video_height             = Video Height 
+%video_width              = Video WiDTH 
+%video_aspect_ratio       = Video Aspect Ratio
+%video_audio_codec        = AUDIO CODEC
+%video_audio_bitrate      = AUDIO Bitrate
+%video_audio_bitrate_mode = AUDIO BiTRATE MODE
+%video_audio_chans        = AUDIO CHANS
+%video_audio_samplerate   = AUDIO SAMPLE RATE
+%video_audio_resolution   = AUDIO RESOLUTION
+
+
+
+
+

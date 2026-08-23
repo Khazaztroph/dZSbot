@@ -1,0 +1,51 @@
+################################
+# Sorting
+################################
+
+
+source [file join [file dirname [info script]] regexp_sorting.cfg]
+
+
+namespace eval ::ioNiNJA::RegEX_Sort {
+    namespace import -force ::ioNiNJA::*
+}
+
+
+################# END OF CONFIG #################
+
+proc ::ioNiNJA::RegEX_Sort::regexp_sorting {} {global pwd path rsort
+
+    set dir [lindex [file split $pwd] end] 
+    
+    if {$rsort(sorting) != ""} {
+	foreach dirmap [split [string trim $rsort(sorting)] \n] {
+		
+		lassign $dirmap pwdmatch regex dirmap 
+		
+		if {![regexp -nocase $pwdmatch $pwd]} { continue }
+
+		if {[regexp -nocase  $rsort(notparent) $dir]} { 
+			set subdir 1
+			set dir [lindex [file split $pwd] end-1] 
+		} 
+		
+		
+		if {![regexp -nocase $regex $dir]} { continue }
+		
+		set dirmap [string map [list %release $dir] $dirmap]
+		
+		sorting $rsort(sym_type) $path $dirmap $pwd
+		
+	}
+     }
+	
+
+
+}
+
+
+if {![info exists pwd]} {
+	set pwd  "[file dirname [lindex $args 2]]"
+	set path "[file dirname [lindex $args 0]]"
+	::ioNiNJA::RegEX_Sort::regexp_sorting
+}

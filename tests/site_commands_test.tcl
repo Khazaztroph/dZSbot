@@ -17,8 +17,104 @@ set tempSection [file join $root runtime]
 ::dZSbot::Config::Set site.commands.bw.source "ioftpd"
 
 set commands [::dZSbot::Commands::List site]
-if {"!df" ni $commands || "!bw" ni $commands} {
-    error "Expected !df and !bw to be registered by site module: $commands"
+foreach expected {!df !bw !bnc !quota !weekly !approve !nuke !unnuke !unuke !reqfilled !reqdel !incomplete !incompletes} {
+    if {$expected ni $commands} {
+        error "Expected $expected to be registered by site module: $commands"
+    }
+}
+
+if {"!topic" in $commands} {
+    error "Did not expect !topic to be registered by site module: $commands"
+}
+
+proc MockBncCheck {target} {
+    set name [string toupper [dict get $target name]]
+    if {$name eq "PRIMEBNC"} {
+        return [dict create ok 1 ms 12 error ""]
+    }
+    return [dict create ok 0 ms 0 error "connection refused"]
+}
+
+::dZSbot::Config::Set site.commands.bnc.targets {
+    {PRiMEBNC 127.0.0.1 31337}
+    {BackupBNC 127.0.0.1 31338}
+}
+::dZSbot::Modules::Site::SetBncCheckCommand MockBncCheck
+
+set bncLines [::dZSbot::Modules::Site::BncLines ""]
+if {[lindex $bncLines 0] ne "BNC: 1/2 online"} {
+    error "Unexpected BNC summary: $bncLines"
+}
+if {![string match "*BNC: PRIMEBNC | OK | 127.0.0.1:31337 | 12ms*" [join $bncLines "\n"]]} {
+    error "Expected online BNC target: $bncLines"
+}
+if {![string match "*BNC: BACKUPBNC | DOWN | 127.0.0.1:31338 | connection refused*" [join $bncLines "\n"]]} {
+    error "Expected down BNC target: $bncLines"
+}
+
+set filteredBnc [::dZSbot::Modules::Site::BncLines "prime"]
+if {[llength $filteredBnc] != 2 || [lindex $filteredBnc 0] ne "BNC: 1/1 online"} {
+    error "Unexpected filtered BNC output: $filteredBnc"
+}
+
+set eggdropTarget [::dZSbot::Modules::Site::ParseBncTarget {ZNC eggdrop 0}]
+if {![dict get $eggdropTarget ok] || [dict get $eggdropTarget mode] ne "eggdrop"} {
+    error "Expected eggdrop BNC target to parse: $eggdropTarget"
+}
+
+set quotaFile [file join $root runtime "test-quota-[pid].tsv"]
+set fh [open $quotaFile w]
+fconfigure $fh -encoding utf-8 -translation lf
+puts $fh [join [list aCe pass 605.92 169.76] "\t"]
+puts $fh [join [list foyel pass 509.75 114.82] "\t"]
+puts $fh [join [list rrimul pass 481.37 139.27] "\t"]
+puts $fh [join [list trax pass 471.39 90.47] "\t"]
+puts $fh [join [list NasBanH pass 416.25 129.11] "\t"]
+close $fh
+
+::dZSbot::Config::Set site.commands.quota.cache_file $quotaFile
+::dZSbot::Config::Set site.commands.quota.cache_max_age_seconds 30
+::dZSbot::Config::Set site.commands.quota.server_name "SomeServer"
+::dZSbot::Config::Set site.commands.quota.required_gb 121.18
+::dZSbot::Config::Set site.commands.quota.days_left 4
+::dZSbot::Config::Set site.commands.quota.limit 5
+::dZSbot::Config::Set site.commands.quota.dayup_limit 3
+::dZSbot::Config::Set site.commands.quota.channel "#monstra"
+
+set quotaLines [::dZSbot::Modules::Site::QuotaLines]
+if {[lindex $quotaLines 0] ne {[ SomeServer]-[ QUOTA 121.18/GB ]-[ Weekly 20% top-1 ]-[ 4 DAYS LEFT ]}} {
+    error "Unexpected quota header: $quotaLines"
+}
+if {![string match "*01: aCe pass with 605.92 GB | today: 169.76 GB (#1 DAYUP)*" [join $quotaLines "\n"]]} {
+    error "Expected first quota row with DAYUP: $quotaLines"
+}
+if {![string match "*03: rrimul pass with 481.37 GB | today: 139.27 GB (#2 DAYUP)*" [join $quotaLines "\n"]]} {
+    error "Expected third quota row with DAYUP: $quotaLines"
+}
+if {![string match "*FAIL Who will die this time? R.I.P*" [join $quotaLines "\n"]]} {
+    error "Expected quota fail footer: $quotaLines"
+}
+
+set incompleteFile [file join $root runtime "test-incomplete-[pid].tsv"]
+set fh [open $incompleteFile w]
+fconfigure $fh -encoding utf-8 -translation lf
+puts $fh [join [list [clock seconds] MOVIES Example.Incomplete-GRP /MOVIES/Example.Incomplete-GRP tester GROUP] "\t"]
+close $fh
+::dZSbot::Config::Set site.commands.incomplete.cache_file $incompleteFile
+::dZSbot::Config::Set site.commands.incomplete.cache_max_age_seconds 30
+set incompleteLines [::dZSbot::Modules::Site::IncompleteLines MOVIES]
+if {![string match "*INCOMPLETE: MOVIES | Example.Incomplete-GRP*" [join $incompleteLines "\n"]]} {
+    error "Expected incomplete cache line: $incompleteLines"
+}
+
+set ::quotaReplies {}
+proc puthelp {line} {
+    lappend ::quotaReplies $line
+}
+::dZSbot::Modules::Site::CmdQuota tester host hand #staff ""
+rename puthelp {}
+if {![llength $::quotaReplies] || ![string match {PRIVMSG #monstra :*} [lindex $::quotaReplies 0]]} {
+    error "Expected quota command to reply in #monstra: $::quotaReplies"
 }
 
 set bw [::dZSbot::Modules::Site::TransferSample]
@@ -139,3 +235,5 @@ if {[::dZSbot::Modules::Site::DictGet $siteSample type ""] ne "site"} {
 ::dZSbot::Config::Set site.commands.df.source "cache"
 ::dZSbot::Commands::Dispatch !bw tester host hand #chan ""
 ::dZSbot::Commands::Dispatch !df tester host hand #chan "runtime"
+::dZSbot::Commands::Dispatch !BNC tester host hand #chan ""
+::dZSbot::Commands::Dispatch !QUOTA tester host hand #chan ""

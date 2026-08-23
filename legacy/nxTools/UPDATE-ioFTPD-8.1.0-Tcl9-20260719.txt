@@ -1,0 +1,97 @@
+################################################################################
+# nxTools custom update for ioFTPD 8.1.0 / 64-bit / Tcl 9
+# Installed: 2026-07-19
+################################################################################
+
+Purpose
+-------
+This update keeps the legacy nxTools 1.2.1 scripts working with the 64-bit
+ioFTPD 8.1.0 Tcl 9 runtime. The original TWAPI 2.0b11 binary is built for
+Tcl 8.x and cannot be loaded by Tcl 9.
+
+
+Changed files
+-------------
+
+1. nxPre.tcl
+
+   - Replaced the TWAPI free-space lookup used by SITE PRE.
+   - Uses ioFTPD's native "ioDisk info" command when running inside ioFTPD.
+   - The native lookup runs in the ioFTPD service process and therefore uses
+     the Session 0 UNC credentials loaded from etc/netmounts.cfg.
+   - Uses wide integers for byte and kilobyte calculations.
+   - Validates all free-space results before arithmetic is performed.
+   - A failed lookup now aborts PRE with a controlled message instead of
+     crashing with "expected number but got an empty string".
+   - Keeps the original 10 MB destination safety buffer.
+   - Includes a PowerShell/GetDiskFreeSpaceEx fallback for standalone testing
+     when the ioFTPD-only ioDisk command is unavailable.
+   - Avoids starting PowerShell during a normal SITE PRE. This is considerably
+     faster than the earlier Tcl 9 workaround.
+
+2. nxUtilities.tcl
+
+   - Removed the Tcl 8.x-only "package require twapi" dependency.
+   - Added GetVolumeInfo, using Windows PowerShell/.NET DriveInfo for the
+     legacy SITE DRIVES command.
+   - Validates the returned volume information before displaying it.
+
+3. ../nxLib.tcl
+
+   - Restored the StrCaseEq and StrCaseEqN SQLite functions formerly supplied
+     by the legacy nxHelper/TclSQLite build.
+   - Registers both functions automatically whenever nxTools opens a database.
+   - Preserves case-insensitive duplicate directory/file, approve and request
+     comparisons under Tcl 9 and the current SQLite package.
+   - Fixes PRE_MKD/MKD failing with "no such function: StrCaseEq".
+
+
+Required ioFTPD 8.1.0 configuration
+-----------------------------------
+
+UNC shares used by a Windows service must have explicit credentials in:
+
+    C:\ioFTPD\etc\netmounts.cfg
+
+Use one entry per share root, not one entry per subdirectory. Run SITE REHASH
+after changing the file. Keep this file restricted to SYSTEM and Administrators
+because passwords are stored as clear text.
+
+The installed netmounts.cfg contains entries for all seven unique UNC share
+roots currently present in etc/default.vfs. Credentials are intentionally not
+recorded in this update document.
+
+
+Verification performed
+----------------------
+
+   - Loaded the modified scripts with ioFTPD's Tcl 9 interpreter.
+   - Tested local free-space lookup and wide-integer validation.
+   - Tested the native ioDisk path used inside ioFTPD.
+   - Confirmed a real SITE PRE against a UNC archive succeeds.
+   - Confirmed the native ioDisk version is noticeably faster than the
+     PowerShell-based workaround.
+   - Tested StrCaseEq and StrCaseEqN through nxLib against a copy of the real
+     DupeDirs.db using ioFTPD's Tcl 9 SQLite package.
+
+
+Backups
+-------
+
+Backups are stored under:
+
+    C:\ioFTPD\scripts\nxTools\backup
+
+Important baseline/rollback files include:
+
+    nxPre.tcl.bak-tcl9-20260717-225037
+    nxPre.tcl.bak-iodisk-20260719
+    nxUtilities.tcl.bak-tcl9-20260717-225037
+    nxUtilities.tcl.bak-nxhelper-20260717-235012
+    nxLib.tcl.bak-sqlite-functions-20260719
+
+The Tcl 9 baseline backups contain the versions from before their respective
+compatibility changes. Review this update file before replacing nxTools during
+a future upgrade, as the upstream legacy scripts may restore the TWAPI calls.
+
+################################################################################

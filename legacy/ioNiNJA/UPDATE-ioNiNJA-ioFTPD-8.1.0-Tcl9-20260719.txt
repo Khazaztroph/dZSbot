@@ -1,0 +1,147 @@
+################################################################################
+# ioNiNJA custom update for ioFTPD 8.1.0 / 64-bit / Tcl 9
+# Installed and documented: 2026-07-19
+################################################################################
+
+Purpose
+-------
+This document records the local ioNiNJA compatibility, correctness and API
+updates made for ioFTPD 8.1.0 with the 64-bit Tcl 9 runtime.
+
+Secrets such as OMDb API keys and network passwords are intentionally not
+included in this document.
+
+
+Changed files and behaviour
+---------------------------
+
+1. ioNiNJA.itcl - upload speed calculation
+
+   - Replaced the old repeated arithmetic average for racer and group speed.
+   - Speed is now calculated as total transferred data divided by total
+     transfer time, using a size-weighted average across uploaded files.
+   - Fixes displayed speeds becoming approximately two times, or more than,
+     the real upload speed after CRC processing.
+   - Confirmed against real transfers: displayed speed now matches the actual
+     transfer speed and upload handling feels more responsive.
+
+2. ioNiNJA.itcl - POST_MKD error handling
+
+   - Protected VFS metadata reads used by POST_MKD.
+   - Failed reads are logged with the affected path and return safely.
+   - Prevents a metadata lookup failure from terminating the event script.
+   - Added path logging to simplify diagnosis of ioFTPD VFS issues.
+
+3. Tcl 9 source encoding compatibility
+
+   The following legacy ANSI files were converted to UTF-8 so Tcl 9 can source
+   them without "invalid or incomplete multibyte" errors:
+
+       MiSC/NiNJALiB.tcl
+       plugins/music_video.itcl
+       plugins/xxx.itcl
+
+   This restores the ioNiNJA namespace/library commands, including get_uinfo,
+   and prevents PRE_STOR/STOR event failures caused by an incomplete startup.
+
+4. plugins/botcheck.tcl and plugins/botchk.itcl
+
+   - Removed the Tcl 8.x-only TWAPI process lookup dependency.
+   - Added Tcl 9-compatible process ID and start-time lookup through Windows
+     PowerShell.
+   - Preserved the existing eggdrop process check, startup and uptime logic.
+
+5. plugins/imdb.itcl and plugins/imdb.cfg
+
+   - Replaced the obsolete IMDb HTML scraper with the OMDb JSON API.
+   - Supports a configured key or the same active OMDb configuration used by
+     dZSbot, without recording the key in this update document.
+   - Added HTTPS/TLS handling compatible with ioFTPD's Tcl 9 environment.
+   - Added request timeout, response cache and JSON fallback handling.
+   - Preserved ioNiNJA's 27-field IMDb chattr format, sorting rules, redirect
+     file, poster support and dZSbot-compatible log output.
+   - Removed the unavailable screen-count value from the default IMDb bar.
+   - Live verification returned valid movie metadata from OMDb.
+
+6. plugins/ioTV.itcl and plugins/ioTV.cfg
+
+   - Replaced the discontinued TheTVDB v1 ZIP/XML workflow with OMDb API
+     lookups for series and individual season/episode metadata.
+   - Supports S01E01 and 1x01 release naming.
+   - Corrected Tcl 9 parsing of zero-padded season and episode numbers.
+   - Preserved the existing 21-field TV chattr layout, sorting rules, poster,
+     redirect file and "TheTVDB:" log name used by dZSbot compatibility.
+   - Date-based TV releases retain the previous no-lookup sorting path.
+   - The old TVDB cache scan/update commands now return harmless informational
+     messages because the OMDb implementation performs live cached lookups.
+   - The TV info bar now uses values available from OMDb and omits unavailable
+     network/status scheduling fields.
+   - Live verification returned valid series and episode metadata.
+
+7. Tcl 9 binary channel compatibility
+
+   - Removed the unsupported "-encoding binary" option from the FLAC and MP3
+     readers in MiSC/NiNJALiB.tcl while retaining binary translation,
+     buffering and the existing parser behaviour.
+   - Removed the same redundant option from ioTV poster image writes. The file
+     is already opened in binary write mode and retains binary translation.
+   - Changed plugins/nfo.itcl to the Tcl 9 byte-preserving iso8859-1 encoding,
+     preserving the original line-oriented NFO reading behaviour.
+   - The FLAC and MP3 readers shared the same fault. FLAC had generated errors
+     in SystemError.log; MP3 had not yet hit the failing code path.
+
+8. FLAC MediaInfo metadata output
+
+   - Corrected the MediaInfo 0.7.70 command-line option from "--output=xml"
+     to "--Output=XML".
+   - MediaInfo 0.7.70 treats the XML value as case-sensitive. The old option
+     silently returned plain text while ioNiNJA parsed XML, producing empty
+     title, artist, album and genre fields with year 0000.
+   - Verified the corrected command against a real uploaded FLAC file; it
+     returned the expected title, artist, album, genre and recorded year.
+
+
+Verification performed
+----------------------
+
+   - Sourced the active ioNiNJA library and updated plugins with ioFTPD's
+     Tcl 9 interpreter.
+   - Tested upload speed arithmetic and confirmed it with real uploads.
+   - Tested IMDb JSON mapping, chattr field count and a live OMDb lookup.
+   - Tested ioTV release parsing, JSON mapping, 21-field chattr compatibility
+     and live series/episode lookups.
+   - Confirmed STOR operates after the Tcl 9 UTF-8 source conversions.
+   - Tested FLAC/MP3 binary channel configuration, NFO reading and ioTV poster
+     write configuration with ioFTPD's Tcl 9 interpreter.
+   - Verified MediaInfo XML mode and FLAC tag names against an uploaded file.
+
+
+Backup layout
+-------------
+
+All retained backups are stored in:
+
+    C:\ioFTPD\scripts\ioNiNJA\Backup
+
+Current update-related backups:
+
+    ioNiNJA.itcl.bak-20260714-speed-average
+    botcheck.tcl.bak-tcl9-20260717-225037
+    botchk.itcl.bak-tcl9-20260717-225037
+    NiNJALiB.tcl.bak-tcl9-utf8-20260719
+    music_video.itcl.bak-tcl9-utf8-20260719
+    xxx.itcl.bak-tcl9-utf8-20260719
+    imdb.itcl.bak-omdb-20260719
+    imdb.cfg.bak-omdb-20260719
+    ioTV.itcl.bak-omdb-20260719
+    ioTV.cfg.bak-omdb-20260719
+    NiNJALiB.tcl.bak-tcl9-binary-20260719
+    ioTV.itcl.bak-tcl9-binary-20260719
+    nfo.itcl.bak-tcl9-binary-20260719
+    NiNJALiB.tcl.bak-mediainfo-xml-20260719
+
+Backups are flattened into one directory, so restore each file to the active
+path identified in the sections above. Review this document before replacing
+ioNiNJA during a future upgrade.
+
+################################################################################

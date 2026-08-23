@@ -19,10 +19,17 @@ normal `bind pub` bindings when available.
 - `!preimport nxtools ?Pres.db path?`: import nxTools PRE entries. Requires staff/op access.
 - `!df [section]`: show configured site disk free space.
 - `!bw`: show live ioFTPD transfer bandwidth from the dZSbot ioFTPD cache exporter.
+- `!bnc [name]`, `!BNC [name]`: show configured BNC/IRC/FTP connectivity status. Requires staff/op access.
+- `!quota`, `!weekly`: show weekly quota/top uploaders from the quota TSV cache.
+- `!approve <release/path>`: forward `SITE APPROVE` to the FTP server.
+- `!nuke <release/path> <multiplier> <reason>`: forward `SITE NUKE`.
+- `!unnuke`, `!unuke <release/path> <reason>`: forward `SITE UNNUKE`.
+- `!reqfilled <request/release>`: forward `SITE REQFILL`.
+- `!reqdel <request/release>`: forward `SITE REQDEL`.
+- `!incomplete [section|release]`: show incomplete releases from the incomplete TSV cache.
 - `!request <release/title>`, `!req <release/title>`: add a request.
 - `!requests`: list open requests.
 - `!reqfill <release/title>`: mark an open request as filled.
-- `!reqdel <release/title>`: delete an open request.
 - `!retention`: show retention/core health.
 - `!status`, `!dzsbot`: show loaded module and command counts.
 - `!dzb status`: show admin runtime status. Requires channel op in the configured staff channel.

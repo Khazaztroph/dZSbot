@@ -79,6 +79,7 @@ proc ::dZSbot::Theme::Bold {text} {
 
 proc ::dZSbot::Theme::Tag {label {section ""}} {
 
+    set label [string toupper $label]
     set open [::dZSbot::Config::Get theme.bracket.open "\["]
     set close [::dZSbot::Config::Get theme.bracket.close "\]"]
     return "${open}[Bold [Color c1 $label $section]]${close}"

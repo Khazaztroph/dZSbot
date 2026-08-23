@@ -104,8 +104,8 @@ puts "Parsed ioFTPD HALF: [dict get $parsedHalf payload]"
 foreach item [list \
     [list $racerLine site.upload.racer "Twisters.2024.1080p.BluRay.H264-VALUE :: Transporter :: 4.00MB/s"] \
     [list $leaderLine site.upload.leader "Twisters.2024.1080p.BluRay.H264-VALUE :: Transporter"] \
-    [list $badCrcLine site.upload.badfile "badcrc" "broken.r00"] \
-    [list $zeroLine site.upload.badfile "0size" "empty.r00"] \
+    [list $badCrcLine site.upload.badfile "BADCRC" "broken.r00"] \
+    [list $zeroLine site.upload.badfile "0SIZE" "empty.r00"] \
     [list $nfoLine site.upload.nfo "NFO" "twisters.nfo"] \
     [list $doubleSfvLine site.upload.doublesfv "DOUBLESFV" "twisters.sfv"] \
     [list $speedTestLine site.upload.speedtest "512MB :: 20.00MB/s"] \
@@ -146,10 +146,10 @@ if {[string first "DEATH_IN_AUGUST-GREET_THE_STORM-EP-CD-FLAC-2026-TOTENKVLT :: 
 puts "Parsed ioFTPD COMPLETE: [dict get $parsedComplete payload]"
 
 foreach item [list \
-    [list {07-02-2026 10:11:35 NEWDATE: "/0DAY/2026-08-10" "0DAY" "Newdate 0DAY"} site.legacy.newdate "newdate" "0DAY"] \
-    [list {07-02-2026 10:12:35 WIPE: "/MOVIES/Old.Release-GROUP" "khaz" "MEV" "1" "15" "7340032"} site.legacy.wipe "wipe" "Old.Release-GROUP"] \
-    [list {07-02-2026 10:13:35 NUKE: "/MOVIES/Bad.Release-GROUP" "nuker" "STAFF" "3" "bad.pack" "12" "102400" "1" "user/10MB"} site.legacy.nuke "nuke" "bad.pack"] \
-    [list {07-02-2026 10:14:35 REQUEST: "tester" "USERS" "Wanted.Release.2026" "4"} site.legacy.request "req" "Wanted.Release.2026"] \
+    [list {07-02-2026 10:11:35 NEWDATE: "/0DAY/2026-08-10" "0DAY" "Newdate 0DAY"} site.legacy.newdate "NEWDATE" "0DAY"] \
+    [list {07-02-2026 10:12:35 WIPE: "/MOVIES/Old.Release-GROUP" "khaz" "MEV" "1" "15" "7340032"} site.legacy.wipe "WIPE" "Old.Release-GROUP"] \
+    [list {07-02-2026 10:13:35 NUKE: "/MOVIES/Bad.Release-GROUP" "nuker" "STAFF" "3" "bad.pack" "12" "102400" "1" "user/10MB"} site.legacy.nuke "NUKE" "bad.pack"] \
+    [list {07-02-2026 10:14:35 REQUEST: "tester" "USERS" "Wanted.Release.2026" "4"} site.legacy.request "REQ" "Wanted.Release.2026"] \
     [list {07-02-2026 10:15:35 REQFILL: "filler" "USERS" "Wanted.Release.2026" "tester" "USERS" "4" "30"} site.legacy.reqfill "FILL" "Wanted.Release.2026"]] {
     set parsedLegacy [::dZSbot::SiteAdapter::ParseIoFtpdLine [lindex $item 0]]
     set expectedEvent [lindex $item 1]

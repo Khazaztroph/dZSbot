@@ -1,0 +1,20 @@
+ReScene CLI for ioNiNJA
+=======================
+
+Source: https://github.com/NeWbY100/ReScene.Manager
+Source revision: 6969d440c963882c71171b6f416007a8fbca6bf2
+Upstream description: v2.1.0-39-g6969d44
+ReScene.Lib revision: 64a887b8ea20082c891dd004f7878362fc554fcb
+License: MIT
+
+Build:
+- Target: .NET 8, Windows x64
+- Deployment: self-contained, single-file
+- SHA-256: 27EECD6F502E5004D33451233408D9BC3B5112278BCB2CB2BE9BDC2008BD498F
+
+Local integration changes:
+- `inspect --json <file>` emits stable machine-readable block data.
+- `verify --json <file.srr>` emits machine-readable validation results.
+
+The executable is installed as `rescene.exe`. The legacy `srr.exe` is retained
+unchanged until ioNiNJA has been switched to the new integration.

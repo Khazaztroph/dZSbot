@@ -30,3 +30,7 @@ puts "Commands: [::dZSbot::Commands::List]"
 ::dZSbot::Commands::Dispatch !dzb tester host hand #chan "status"
 ::dZSbot::Commands::Dispatch !dzb tester host hand #staff "status"
 ::dZSbot::Commands::Dispatch !dzb opuser host hand #staff "status"
+
+if {![::dZSbot::Commands::Dispatch !STATUS tester host hand #chan ""]} {
+    error "Expected uppercase command dispatch to work"
+}

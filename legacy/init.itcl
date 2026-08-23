@@ -1,0 +1,41 @@
+
+set nx(scripts) {
+  {../scripts/nxTools/nxTools.cfg}
+  {../scripts/nxLib.tcl}
+}
+
+proc nxLoadError {type message} {
+    if {![catch {set handle [open "../logs/nxError.log" a]}]} {
+        set now [clock format [clock seconds] -format "%m-%d-%Y %H:%M:%S"]
+        puts $handle "$now - [format %-12s $type] : $message"
+        close $handle
+    }
+}
+
+foreach name $nx(scripts) {
+    if {[catch {source [file normalize $name]} error]} {
+        nxLoadError LoadScript $error
+    }
+}
+
+foreach name {nxHelper sqlite3} {
+    if {[catch {package require $name} error]} {
+        nxLoadError LoadPackage $error
+    }
+}
+
+
+if {[catch {source "../scripts/ioNiNJA/ioNiNJA.cfg"} error]} {
+	return
+}
+if {[catch {source "../scripts/ioNiNJA/themes/$ioNJ(themefile)"} error]} {
+	return
+}
+
+if {[catch {source "../scripts/ioNiNJA/MiSC/NiNJALiB.tcl"} error]} {
+	return
+}
+
+if {[catch {package require http} error]} {
+	return
+}

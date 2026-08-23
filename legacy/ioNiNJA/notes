@@ -1,0 +1,9 @@
+ioNiNJA v1.0b7
+--------------
+
+Fixes
+------
+- Improved POST_MKD error handling.
+- Prevents unhandled 'vfs read' failures when target directory is unavailable.
+- Added graceful error handling and logging.
+- Improved overall stability during directory creation events.

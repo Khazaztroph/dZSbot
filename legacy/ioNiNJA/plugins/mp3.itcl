@@ -1,0 +1,127 @@
+namespace eval ::ioNiNJA::MP3 {
+    namespace import -force ::ioNiNJA::*
+}
+
+
+source [file join [file dirname [info script]] mp3.cfg]
+
+
+proc ::ioNiNJA::MP3::Main {} {global ioNJ args path pwd
+
+	iputs -nobuffer "Sorting: $path"
+   
+   	set tempartists ""
+
+	set mp3files [get_files $path *.mp3]
+
+	if {$mp3files == ""} { return }
+	
+	if {$ioNJ(mp3_fast_sorting)} { set mp3files [lindex $mp3files 0] }
+	
+	iputs -nobuffer "Sorting [file tail $path]"
+	
+
+   	foreach mp3file $mp3files {
+   		get_mp3_information $mp3file
+		set mp3 [readchattr 25]
+		lassign $mp3 crap artist album title bitrate mpeg layer channelmode genre year srate lame lpreset mp3original mp3padding duration track mp3vbr vbroldnew
+   		if {[set lrep [lsearch -glob $tempartists "$artist *"]] != "-1"} {
+		   	set tempartists [lreplace $tempartists $lrep $lrep "$artist [expr [lindex [lindex $tempartists $lrep] end] +1]"]
+		} else {
+		   	lappend tempartists "$artist 1"
+   		}
+   	}
+  
+   	set artist [lrange [lindex [lsort -decreasing -integer -index end "$tempartists"] 0] 0 end-1]
+	if {$ioNJ(lastfm_correction)} {
+		set tempartist [get_url http://ws.audioscrobbler.com/2.0/?method=artist.getcorrection&artist=${artist}&api_key=LASTFM_API_KEY_HERE]
+		regexp -nocase {<name>(.+?)</name>} $tempartist -> artist
+	}
+	
+  	set dir [lindex [file split $path] end]
+  	
+	if {[regexp -nocase  $ioNJ(notparent) $dir]} { 
+		set subdir 1
+		set dir [lindex [file split $path] end-1] 
+	}
+	
+	set releasegroup [get_grpname $dir]
+   
+	set album [get_music_album $album]
+	
+	lassign [get_music_artist $artist $dir] artist apic
+	
+	if {$ioNJ(mp3_strip_the)} {
+		regsub -nocase -all {^the } $artist {} artist
+	}
+	
+	if {$ioNJ(get_cover_enabled)} {
+		set cover [Music_Cover $artist $album $year $genre]
+	}
+	
+	if {$ioNJ(mp3_fanart_enabled)} {
+		backdrop $artist
+	}
+
+	set artist_first [string toupper [string index [lindex $artist 0] 0]]
+    set decade [string replace $year end end 0]
+
+	if {![regexp -nocase {[A-Za-z|å|Å|ä|Ä|Ö|ö]} [lindex $artist_first 0]]} { set artist_first "#" }
+
+    if {$ioNJ(artist_pic) != "" && ![regexp -nocase {^(ost|va)$} $artist] } {
+		if {$apic != ""} {
+            set afile [file join [file dirname [info script]] $artist.jpg]
+            foreach line [split [string trim $ioNJ(artist_pic)] \n] {
+                set line [string map [regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} [list %artist_first $artist_first %artist $artist %album $album %decade $decade %genre $genre %year $year %lame $lame %group $releasegroup %release $dir] {}] $line]
+                catch {file mkdir $line}
+                if {[file exists "[file dirname [info script]]/Music/fanart/$artist/"] && $ioNJ(mp3_fanart_enabled)} {
+                    if { ![file exists  [file join $line fanart.jpg]] } {
+                            set fanart2 [lindex [get_files "[file dirname [info script]]/Music/fanart/$artist/" *] 0]
+                            catch {file copy $fanart2 [file join $line fanart.jpg]}
+                        }
+				}
+				if {![file exists [file join $line folder.jpg]]} {
+						catch {file copy $apic  [file join $line folder.jpg]}
+				}
+			}
+		}
+    }
+
+	if {$ioNJ(special_sorting) != "" && $ioNJ(special_sorting_theme) != ""} {
+		set tempspecial ""
+		foreach string [lrange [split $dir -] 2 end] {
+	         	if {[regexp -nocase $ioNJ(special_sorting) [set string [regsub -all {\(|\)} [regsub -all {\.|_} $string { }] {}]]]} {
+		        	lappend tempspecial $string
+	          	}
+	       }
+	       if {$tempspecial != ""} {
+	        	set special_info  [string map [list %special [string trim [join $tempspecial " - "]]] $ioNJ(special_sorting_theme)]
+				set album "${album}$special_info"
+		}
+	}
+		 		       
+	 
+	if {$ioNJ(audio_sorting) == ""} { 
+		return 
+	}
+	 
+	foreach dirmap [split [string trim $ioNJ(audio_sorting)] \n] {
+		set pwd_match [lindex $dirmap 0]
+		set dirmap   [lindex $dirmap 1]
+		if {![regexp -nocase $pwd_match $pwd]} { continue }	
+		set dirmap [string map [regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} [list %artist_first $artist_first %artist $artist %album $album %decade $decade %genre $genre %year $year %lame $lame %group $releasegroup %release $dir] {}] $dirmap]
+		if {[info exists subdir]} { set linkto [file dirname $path] } else { set linkto $path }
+		sorting $ioNJ(mp3_sym_type) $linkto $dirmap $pwd
+	}
+	    
+}
+
+if {![info exists pwd]} {
+	set pwd  "[file dirname [lindex $args 2]]"
+	set path "[file dirname [lindex $args 0]]"
+	::ioNiNJA::MP3::Main
+}
+
+
+
+

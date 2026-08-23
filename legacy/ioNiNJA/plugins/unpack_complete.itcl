@@ -1,0 +1,69 @@
+namespace eval ::ioNiNJA::Unpack {
+    namespace import -force ::ioNiNJA::*
+}
+
+# timestamp helper (DATE + TIME split)
+proc ts_date {} {
+    return [clock format [clock seconds] -format "%d.%m.%Y"]
+}
+
+proc ts_time {} {
+    return [clock format [clock seconds] -format "%H:%M:%S"]
+}
+
+proc ::ioNiNJA::Unpack::Main {} {
+    global path pwd ioNJ args
+
+    set rarfiles [get_files $path *.{rar,001}]
+    if {$rarfiles eq ""} { return }
+
+    set i 0
+
+    while {[lindex $rarfiles $i] ne ""} {
+
+        set rarfile [lindex $rarfiles $i]
+
+        if {![file exists $rarfile]} {
+            incr i
+            continue
+        }
+
+        # EXACT FORMAT YOU REQUESTED
+        set time " [ts_date] - [ts_time] -"
+
+        iputs -nobuffer "$time UNPACK START: $rarfile"
+
+        # safe execution
+        set cmd [list ../scripts/ioNiNJA/MiSC/unrar.exe x -yo+ $rarfile $path]
+
+        set pipe [open "|$cmd 2>@1" r]
+        fconfigure $pipe -blocking 0
+
+        while {![eof $pipe]} {
+            if {[gets $pipe line] >= 0} {
+                if {$line ne ""} {
+                    iputs -nobuffer "$time UNRAR: $line"
+                }
+            } else {
+                after 50
+            }
+        }
+
+        catch {close $pipe}
+
+        iputs -nobuffer "$time UNPACK DONE: $rarfile"
+
+        incr i
+    }
+}
+
+# ENTRY POINT
+if {![info exists path]} {
+    set path [lindex $args 0]
+}
+
+if {![info exists pwd]} {
+    set pwd $path
+}
+
+::ioNiNJA::Unpack::Main

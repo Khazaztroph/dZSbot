@@ -23,16 +23,16 @@ Use `eggdrop.exe -m eggdrop.conf` only when creating a fresh Eggdrop userfile.
 
 ## Documentation
 
-- [Site Commands: !df and !bw](docs/SITE_COMMANDS.md)
-- [Developer Guide](docs/DEVELOPER_GUIDE.md)
-- [Architecture Philosophy](docs/ARCHITECTURE_PHILOSOPHY.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Core](docs/CORE.md)
-- [Configuration](docs/CONFIGURATION.md)
+Start with the [Documentation Index](docs/README.md).
+
+- [Install](INSTALL.md)
+- [Quick Start](docs/QUICK_START.md)
+- [Config Files](docs/CONFIG_FILES.md)
+- [Legacy Bundle](docs/LEGACY_BUNDLE.md)
+- [IRC Themes](docs/IRC_THEMES.md)
+- [ioFTPD / nxTools Events](docs/IOFTPD_INTEGRATION.md)
+- [FluxFTP API](docs/FLUXFTP.md)
 - [Commands](docs/COMMANDS.md)
-- [Database](docs/DATABASE.md)
-- [FluxFTP Adapter](docs/FLUXFTP.md)
-- [PRE](docs/PRE.md)
-- [Requests](docs/REQUESTS.md)
-- [Site Adapters](docs/SITE_ADAPTERS.md)
-- [ioFTPD Integration](docs/IOFTPD_INTEGRATION.md)
+- [MySQL / TSV Storage](docs/MYSQL_TSV_STORAGE.md)
+- [Upgrade Guide](docs/UPGRADE_GUIDE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)

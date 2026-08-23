@@ -22,7 +22,12 @@ Admin status command:
 ```tcl
 ::dZSbot::Config::Set status.admin_channel "#staff"
 ::dZSbot::Config::Set status.require_channel_op 1
+::dZSbot::Config::Set status.reply_target "private"
 ```
+
+`status.reply_target` can be `channel` or `private`. Private keeps `!dzb status`
+output out of the staff channel while still requiring the command to be run from
+the configured admin channel.
 
 Daily GitHub release checks:
 
@@ -202,9 +207,45 @@ events, while leaving noisy per-file `racer` output disabled:
 
 ```tcl
 ::dZSbot::Config::Set upload.announce.enabled 1
+::dZSbot::Config::Set upload.announce.channel "#spam"
+::dZSbot::Config::Set upload.announce.default_channel "#opers"
+::dZSbot::Config::Set upload.announce.section_channels {
+    {#spam {MUSIC FLAC MP3 XXX XXX-PAY}}
+    {#monstra {TV-HD-NORDIC TV-SD-NORDIC X264-NORDIC X265-NORDIC UHD-NORDIC *-NORDIC}}
+}
 ::dZSbot::Config::Set upload.announce.events {newdir first half leader complete badfile nfo doublesfv speedtest incomplete}
 ::dZSbot::Config::Set upload.announce.event.racer.enabled 0
 ::dZSbot::Config::Set upload.announce.event.complete.enabled 1
+```
+
+PRE and metadata output are configured separately in `pre.conf`, `imdb.conf`,
+`tv.conf` and `music.conf`, so upload activity can go to `#spam` while PRE stays
+clean in `#pre`. If `upload.announce.section_channels` is set, matching sections
+go to their configured channel and everything else goes to
+`upload.announce.default_channel`. Section names are case-insensitive, aliases
+are supported, and a broad route such as `XXX` also matches `XXX-PAY`.
+
+Legacy nxTools/ioNiNJA-style announces are controlled separately. These are
+events read from the ioFTPD/nxTools log, such as `NEWDATE`, `NUKE`, `UNNUKE`,
+`APPROVE`, `REQFILL` and `REQDEL`:
+
+```tcl
+# config/modules/legacy.conf
+::dZSbot::Config::Set legacy.announce.enabled 1
+::dZSbot::Config::Set legacy.announce.channel "#spam"
+::dZSbot::Config::Set legacy.announce.default_channel "#opers"
+::dZSbot::Config::Set legacy.announce.section_channels {
+    {#spam {MUSIC FLAC MP3 XXX XXX-PAY}}
+    {#monstra {TV-HD-NORDIC TV-SD-NORDIC X264-NORDIC X265-NORDIC UHD-NORDIC *-NORDIC}}
+}
+::dZSbot::Config::Set legacy.announce.event.newdate.enabled 1
+```
+
+Set a per-event value to `0` to silence that announce type while keeping the
+rest of the legacy event parser active:
+
+```tcl
+::dZSbot::Config::Set legacy.announce.event.newdate.enabled 0
 ```
 
 ```tcl

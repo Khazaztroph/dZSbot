@@ -1,0 +1,261 @@
+namespace eval ::ioNiNJA::MvInfo {
+    namespace import -force ::ioNiNJA::*
+}
+
+source [file join [file dirname [info script]] music_video.cfg]
+
+proc ::ioNiNJA::MvInfo::get_mv_info {} {global ioNJ path pwd args
+
+
+     if {![regexp -nocase $ioNJ(mv_path) $pwd]} { return }
+     
+     set mvartist     "UNKNOWN"
+     set releasegroup "UNKNOWN"
+     set mvgenre      "UNKNOWN"
+     set mvtitle      "UNKNOWN"
+     set mvyear       "0000"
+     set dir          [file tail $pwd]
+     set releasegroup [get_grpname $dir]
+     
+     if {[set nfo [lindex [get_files $path *.nfo] 0]] == ""} {
+		if {!$ioNJ(mv_no_nfo)} {
+			return 
+		}
+	 }
+	 
+	set ok 0
+	set mvfiles [get_files $path *]
+	foreach mvfile $mvfiles {
+		if {[regexp -nocase {\.(mpg|mpeg|avi|mkv|mp4|wmv|divx|xvid|m2v|flv)$} $mvfile]} {
+			set ok 1
+			break
+		}
+	}
+	if {!$ok} { return }
+
+
+	set mvfiles [get_files $path "\\\[MvInfo\\\]*"]
+	foreach mvfile $mvfiles {
+			if {[file size $mvfile] == 0} {
+				catch {file delete -force $mvfile} temp
+			}
+	}
+     
+     if {![file exists $nfo] && ![file isfile $nfo]} { 
+		set nfofile ""
+		if {!$ioNJ(mv_no_nfo)} {
+			return 
+		}
+	 }
+		
+     #Get MV GENRE from NFO
+	 if {$nfo != "" } {
+		set nfofile [readfile $nfo]
+	 }
+     regsub -all "ÿ" $nfofile " " nfofile
+	 regsub -all "\&" $nfofile "AND" nfofile
+	 regsub -all "\&" $nfofile "AND" nfofile
+     regsub -all -- {[^[:ascii:] ]|ÿ|þ} $nfofile {} nfofile
+     
+	if {![regexp -nocase {(?:genre|g e n r e)(?:\_|\W)+([\w\'-.]+(?:\s[\w\'-]+)*)} $nfofile -> mvgenre]} {
+     		set mvgenre "Unknown"
+     } else {
+			set mvgenre [string trim [lindex [split $mvgenre \n] 0]]
+			switch -- $mvgenre {
+				genre { set mvgenre "Unknown" }
+				"Hip Hop"     { set mvgenre "Hip-Hop" }
+				"Hip-Hop"     { set mvgenre "HipHop" }
+				"HipHop"  	  { set mvgenre "HipHop" }
+				"R&B" 	  	  { set mvgenre "RnB" }
+				"RANDB" 	  { set mvgenre "RnB" }
+				"R n B" 	  { set mvgenre "RnB" }
+				"R and B" 	  { set mvgenre "RnB" }
+				"Pop Rock" 	  { set mvgenre "PopRock" }
+				"Pop-Rock" 	  { set mvgenre "PopRock" }
+				"Punk Rock"   { set mvgenre "PunkRock" }
+				"Punk-Rock"   { set mvgenre "PunkRock" }
+			}
+     }
+
+	 
+     if {![regexp -nocase {(?:song|title)(?:\_|\W)+([\w\'-.]+(?:\s[\w\'-]+).*)} $nfofile -> mvtitle]} {
+          	if {[string match "*-*-*" $dir] && $mvtitle == "UNKNOWN"} {
+			set mvtitle [lindex [split $dir -] 1]
+			set mvtitle [regsub -all {_|\.|\]|\[} $mvtitle { }]
+ 		}
+     } else {
+          	set mvtitle [lindex [split $mvtitle \n] 0]
+			set mvtitle [regsub -all {\]|\[} $mvtitle { }]
+     }
+     
+     
+     if {![regexp -nocase {(?:artist|a r t i s t)(?:\_|\W)+([\w\'-.,]+(?:\s[\w\'-]+).*)} $nfofile -> mvartist]} {
+          if {[regexp -nocase {\-.+?\-[0-9]{4}\-} $dir] && $mvartist == "UNKNOWN"} {
+			set mvartist [lindex [split $dir -] 0]
+			set mvartist [regsub -all {_|\.|\]|\[} $mvartist { }]
+		} else {
+			set mvartist [lindex [split $dir -] 0]
+		}
+     } else {
+     	set mvartist [lindex [split $mvartist \n] 0]
+		set mvartist [regsub -all {\]|\[} $mvartist { }]
+     }
+	 
+     
+     if {$mvartist != "UNKNOWN" && [regexp -nocase $mvartist $dir]} {
+     		if {![string match -nocase "*-*" $dir]} {
+				set mvtitle [string trim [lindex [split $dir -] 1]]
+     		} else {
+     			regsub -all $mvartist $mvtitle {} $dir
+     			set mvtitle [string trim [lindex [split $dir -] 1]]
+     		}
+     }
+	 
+	 
+
+     
+    if {[string index $dir 0] != [string index $mvartist 0]} {
+			if {[regexp -nocase {\-.+?\-[0-9]{4}\-} $dir]} {
+				set mvartist [lindex [split $dir -] 0]
+				set mvartist [regsub -all {_|\.} $mvartist { }]
+			}
+     }
+
+     set mvartist [regsub -all {_|\.} $mvartist { }]
+	 set mvtitle [regsub -all {_|\.} $mvtitle { }]
+	 regsub -all {   .*$} $mvartist {} mvartist
+	 set mvtitle [string trim $mvtitle]
+	 iputs -nobuffer $mvartist
+     iputs -nobuffer "250-RESORT MV: Searching for Artist: $mvartist SongTitle: $mvtitle"
+	 
+     set temp [regexp -nocase {(.+?) (ft|feat)} $mvartist -> mvartist]
+     
+     if {$ioNJ(strip_the)} { regsub -nocase {^the } $mvartist {} mvartist }
+	
+     set mvyear [lindex [regexp -inline -nocase -all {([12][0-9][0-9][0-9])} $dir] end]
+     if {$mvyear == ""} { set mvyear "0000"}
+
+     
+     
+	if ($ioNJ(mv_get_cover_enabled)) {
+		Music_Cover $mvartist $mvtitle $mvyear
+	}
+	 
+    set decade [string replace $mvyear end end 0]
+     
+	
+	lassign [get_music_artist $mvartist $dir] mvartist apic
+	
+
+	regsub -all {   .*$} $mvtitle {} mvtitle
+	set mvartist [string trim $mvartist]
+	
+	if {$ioNJ(strip_the)} { regsub -nocase {^the } $mvartist {} mvartist }
+	
+	set artist_first [string index $mvartist 0]
+	
+    if {![regexp -nocase {[A-Za-z]} $artist_first]} { set artist_first # }
+
+	writechattr 14 [list $mvgenre $mvartist $mvyear $mvtitle]
+
+	
+	if {$ioNJ(mv_special_sorting) != "" && $ioNJ(mv_special_sorting_theme) != ""} {
+		set tempspecial ""
+		foreach string [lrange [split $dir -] 2 end] {
+	         	if {[regexp -nocase $ioNJ(mv_special_sorting) [set string [regsub -all {\(|\)} [regsub -all {\.|_} $string { }] {}]]]} {
+		        	lappend tempspecial $string
+	          	}
+	       }
+			set tempspecial [string trim $tempspecial]
+	       if {$tempspecial != ""} {
+	        	set special_info  [string map [list %special [string trim [join $tempspecial " - "]]] $ioNJ(mv_special_sorting_theme)]
+				set mvtitle "${mvtitle}$special_info"
+		}
+	}
+	
+	regsub -all {\(.*} $mvtitle {} $mvtitle
+	set mvtitle [string trim $mvtitle]
+	
+    if {$ioNJ(mv_artist_pic) != "" && ![regexp -nocase {^(ost|va)$} $mvartist] } {
+       		           if {$apic != ""} {
+                               set afile [file join [file dirname [info script]] $mvartist.jpg]
+                               foreach line [split [string trim $ioNJ(mv_artist_pic)] \n] {
+                                        set line [string map [regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} [list %mv_artist_first $artist_first %mv_artist $mvartist %mv_decade $decade %mv_genre $mvgenre %mv_year $mvyear %mv_group $releasegroup %release $dir] {}] $line]
+                                        catch {file mkdir $line}
+										set new [backdrop $mvartist]
+                                        if {[file exists "[file dirname [info script]]/Music/fanart/$mvartist/"]} {
+                                        	if { ![file exists  [file join $line fanart.jpg]] } {
+                                        		set fanart2 [lindex [get_files "[file dirname [info script]]/Music/fanart/$mvartist/" *] 0]
+                                         		catch {file copy $fanart2 [file join $line fanart.jpg]}
+												
+                                     		}
+                            		}
+									if {![file exists [file join $line folder.jpg]]} {
+										catch {file copy $apic  [file join $line folder.jpg]}
+									}
+								}
+						}
+         }
+
+     set mvtemp [string map [list %mv_decade $decade %mv_year $mvyear %mv_artist $mvartist %mv_title $mvtitle %mv_genre $mvgenre] $ioNJ(mv_bar)]
+     regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} $mvtemp {} mvtemp
+     	
+	
+     set mvtag "$path/$mvtemp"
+     if {![file exists "$mvtag"]} { 
+     	 if {$ioNJ(mv_type) == 1} {
+     		set outfile [open "$mvtag" w]
+     		close $outfile
+     		vfs flush $path  
+     		catch {vfs write "$mvtag" 0 0 777} error 
+     		vfs flush $path 
+     	} elseif {$ioNJ(mv_type) == 2} {
+     		catch {file mkdir "$mvtag"}
+     		catch {vfs write "$mvtag" 0 0 777} error
+     		vfs flush $path
+     	}
+     } 
+     
+     if {$ioNJ(mv_sorting) != ""} {
+     	foreach dirmap [split [string trim $ioNJ(mv_sorting)] \n] {
+     		set pwdmatch [lindex $dirmap 0]
+     		set dirmap   [lindex $dirmap 1]
+     		
+     		if {![regexp -nocase $pwdmatch $pwd]} { continue }
+     		
+     		set dirmap [string map [list %mv_title $mvtitle %mv_artist_first $artist_first %mv_artist $mvartist %mv_decade $decade %mv_genre $mvgenre %mv_year $mvyear %mv_group $releasegroup %release $dir] $dirmap]
+     		
+     		sorting $ioNJ(mv_sym_type) $path $dirmap $pwd
+     	}
+     }
+     
+	if {$args != "RESCAN"} {
+		put_log [list MVINFO: $pwd $dir $mvgenre $mvartist $mvyear $mvtitle $releasegroup]
+	}
+}
+
+
+proc ::ioNiNJA::MvInfo::Music_Cover {artist album year} { global ioNJ path pwd
+	
+		if {!$ioNJ(mv_get_cover_enabled)} { return }
+	
+		if {[file exists [file join $path folder.jpg]]} {
+                    if {!$ioNJ(mv_overwrite_old_cover)} { return }
+                    catch {file delete -force -- "$path/folder.jpg"}
+        }
+
+
+		foreach check [split [string trim $ioNJ(search_order)] \n] {
+			set temp [$check $artist $album $year]
+			if {$temp} { break }
+		}
+		 
+		return
+
+}
+
+if {![info exists pwd]} {
+	set path "[file dirname [lindex $args 1]]"
+	set pwd  "[file dirname [lindex $args 3]]"
+	::ioNiNJA::MvInfo::get_mv_info
+}

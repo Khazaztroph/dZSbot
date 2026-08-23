@@ -1,0 +1,446 @@
+source [file join [file dirname [info script]] xxx.cfg]
+
+namespace eval ::ioNiNJA::XXXCDU {
+    namespace import -force ::ioNiNJA::*
+}
+
+
+
+proc ::ioNiNJA::XXXCDU::get_xxx_name {release} { global ioNJ
+	regexp -nocase ((.*)\-.+?$) $release -> release
+	regexp -nocase $ioNJ(xxxReg) $release -> release
+	return "[string trim [regsub -all { |\_|\-|\.} $release { }]]"
+	
+}
+
+proc ::ioNiNJA::XXXCDU::xxx_info {} {global ioNJ pwd path
+
+	if {![regexp -nocase $ioNJ(xxx_paths) $pwd]} { return }
+
+	set release [file tail $path]
+	
+	iputs -nobuffer "XXX-Sorting: $release"
+	
+	if {[regexp -nocase  $ioNJ(notparent) $release]} {
+		set release [file dirname $path]
+	}
+	
+	set group [get_grpname $release]
+	
+	#Check if we should skip the release
+	if {[regexp -nocase ($ioNJ(Skip_xxxReg)) $release - new] && $ioNJ(Skip_xxxReg) != ""} {
+		return
+	}
+	
+	#Get XXX movie Name
+	set xxxname [get_xxx_name $release]
+	
+	#Return if no xxx name is found
+	if {$xxxname == ""} { return }
+	
+   lassign [nfo $xxxname $release] xxxtitle xxxurl xxxdate xxxstars xxxdirector xxxgenre xxxstudio
+
+
+	set nfo_xxxurl [xxx_nfo_url $xxxname $release]
+	 
+	 if {$ioNJ(xxx_get_web)} {
+		if {[regexp -nocase cduniverse $nfo_xxxurl]} {
+			iputs -nobuffer "Found URL FOR CDUNIVERSE: $nfo_xxxurl"
+			set info [cduniverse $xxxname $release $nfo_xxxurl 1]
+		} elseif {[regexp -nocase xonair $nfo_xxxurl]} {
+			iputs -nobuffer "Found URL FOR XonAiR: $nfo_xxxurl"
+			set info [xonair $xxxname $release $nfo_xxxurl 1]
+		} else {
+			iputs -nobuffer "Found Nothing Searching: $nfo_xxxurl"
+			set info [xxx_getinfo $xxxname $release]
+		}
+	 } 
+
+	
+	
+	lassign $info xxxtitle xxxurl xxxdate xxxstars xxxdirector xxxgenre xxxstudio
+	regsub -nocase {http://} $xxxurl {} xxxurl
+	regsub -nocase {/} $xxxgenre {-} xxxgenre
+	regsub -nocase -all {/} $xxxdate {-} xxxdate
+	if { $xxxtitle == "-" } { 
+		set xxxtitle [get_xxx_name $release]
+	}
+
+	put_log "XXXiNFO: $pwd $xxxtitle $xxxurl $xxxdate $xxxstars $xxxdirector $xxxgenre $xxxstudio"	
+	
+	if {$ioNJ(xxx_url) != "" && ($xxxurl != "-")} {
+	 	set openfile [open [string map "%release $release" [file join "$path" $ioNJ(xxx_url)]] w]
+		puts $openfile "<TITLE>IMDB REDIRECT</TITLE>\n<META HTTP-EQUIV=\"refresh\" CONTENT=\"0\;URL=http://${xxxurl}\">"
+		close $openfile
+		unset openfile
+	}
+	
+	
+
+	
+	
+	if {$ioNJ(xxx_bar) == ""} { return }
+	
+	set replacexxx "%xxxTitle {$xxxtitle} %xxxDate {$xxxdate} %xxxStars {[join $xxxstars ,]} %xxxDirector {$xxxdirector} %xxxGenre {[join $xxxgenre ,]} %xxxStudio {$xxxstudio}"
+	set xxxbar [string map $replacexxx $ioNJ(xxx_bar)]
+	regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} $xxxbar {} xxxbar
+	set xxxbar [file join $path $xxxbar] 
+	foreach fp [glob -nocomplain -directory "$path" "[string map { \[ \\[ \] \\]} $ioNJ(xxx_del_bar)]"] { catch {file delete -force "$fp"} }
+	if {![file exists $xxxbar]} { 
+		if {$ioNJ(xxx_bar_type)} {
+			set outfile [open "$xxxbar" w]
+			close $outfile
+			catch {vfs write "$xxxbar" $uid $gid 777} error 
+			vfs flush $path 
+		} else {
+			catch {file mkdir "$xxxbar"}
+			catch {vfs write "$xxxbar" $uid $gid 777} error
+			vfs flush $path
+		}
+	} 
+	
+	xxx_sorting $xxxtitle $xxxurl $xxxdate $xxxstars $xxxdirector $xxxgenre $xxxstudio $release $group
+	return
+}
+
+
+proc ::ioNiNJA::XXXCDU::xxx_getinfo {xxxname release} { global pwd path ioNJ uid gid
+	
+	set temp ""
+
+	foreach check [split [string trim $ioNJ(xxx_info)] \n] {
+		set temp [$check $xxxname $release]
+		if {$temp != ""} { break }	
+	}
+	return $temp
+}
+
+proc ::ioNiNJA::XXXCDU::xxx_nfo_url {xxxname release} { global pwd path ioNJ uid gid
+	
+	 if {[set nfo [lindex [get_files $path *.nfo] 0]] == ""} { return -}
+          
+     if {![file exists $nfo] && ![file isfile $nfo]} { return -}
+   
+     if {![regexp -nocase $ioNJ(xxx_paths) $pwd]} { return -}
+	 
+     #Get xxx GENRE from NFO
+     set nfofile [readfile $nfo]
+     
+	 if {![regexp -nocase {http://([\w\'-.[:punct:]=]+(?:\s[\w\'-/]+)*)} $nfofile -> url]} {
+		set url -
+	 }
+	 
+	return $url
+}
+
+proc ::ioNiNJA::XXXCDU::cduniverse {xxxname release {xxxurl ""} {skipcheck 0}} { global pwd path ioNJ uid gid
+		
+	lassign "- - - - - -" xxxtitle xxxdate xxxstars xxxdirector xxxgenre xxxstudio
+	
+	if {$xxxurl == ""} {
+		set site  "www.cduniverse.com"
+
+		set xxxname "$xxxname dvd"
+	
+		set xxx_data [get_url "http://www.google.com/search?hl=en&btnI=I%27m+Feeling+Lucky&as_sitesearch=${site}&q=[regsub -all -nocase { } ${xxxname} {+}]"]
+	
+		if {![regexp -nocase {(www.cduniverse.com/productinfo.asp\?pid\=\d+)} $xxx_data -> xxxurl]} {
+			return
+		}
+		
+	}
+
+	set xxx_data [get_url "http://$xxxurl"]
+
+	if {[regexp -nocase {This object may be found <a HREF="(/warning\.asp.+?)">here</a>} $xxx_data -> xxxurl]} {
+		set xxx_data [get_url "http://www.cduniverse.com${xxxurl}"]
+	}
+
+	if {[regexp -nocase {<a href="(/warning\.asp\?Decision\=I\+Agree.+?)">} $xxx_data -> xxxurl]} {
+		set xxx_data [get_url "http://www.cduniverse.com${xxxurl}"]
+	}
+	
+	if {[regexp -nocase {This object may be found <a HREF="(/productinfo.asp.+?)">here</a>} $xxx_data -> xxxurl]} {
+		set xxx_data [get_url "http://www.cduniverse.com${xxxurl}"]
+	}
+	
+	if {![regexp -nocase {<title>(.+?) DVD</title>} $xxx_data -> xxxtitle]} {
+		return
+	}
+	
+	set title_first [string toupper [string index $xxxtitle 0]]
+	
+	if {!$skipcheck} {
+		if {[string tolower [string index $release 0]] != [string tolower $title_first] && $ioNJ(xxx_check_1st_letter)} {
+			putlog -error "XXXiNFO: $release != $xxxtitle -> Skipping -> 1st letter doesn't match"
+			return
+		}
+	}
+
+	if {[regexp -nocase {src="(http://cover\d+.cduniverse.com/CDUCoverart/Adult/Medium/Front/\d+/\d+.jpg)"} $xxx_data -> xxxcover]} {
+		regsub -all {/Medium/} $xxxcover {/Large/} xxxcover
+		regsub -all {/Front/} $xxxcover {/Back/} xxxbackcover
+		if {$ioNJ(xxx_img_front) != ""} {
+			save_pic_custom $xxxcover [string map "%release $release" [file join "$path" $ioNJ(xxx_img_front)]]
+		}
+		if {$ioNJ(xxx_img_back) != ""} {
+			save_pic_custom $xxxbackcover [string map "%release $release" [file join "$path" $ioNJ(xxx_img_back)]]
+		}
+	}
+	
+	
+	set xxxgenre ""
+	set allcat [regexp -all -inline -nocase {<a class="categorylink" href="/browsecat.asp.+?">(.+?)</a>} $xxx_data]
+	foreach {crap cat} $allcat {
+		lappend xxxgenre $cat
+	}
+	set xxxstars ""
+				
+	set allact [regexp -all -inline -nocase {<a class='categorylink' href="/sresult.asp\?style=ice\&HT_Search\=xstar\&HT_Search_Info=-.+?">(.+?)</a>} $xxx_data]
+	foreach {crap act} $allact {
+		lappend xxxstars $act
+	}
+	
+	regexp -nocase {Director.+?HT_Search_Name=.+?">(.+?)<.*} $xxx_data -> xxxdirector
+	regexp -nocase {<td class='info'><nobr>Release Date </nobr></td><td>(.+?)</td>} $xxx_data -> xxxdate
+	regexp -nocase {release date (.*)} $xxxdate -> xxxdate
+	 
+	regexp -nocase {<h2 class="studio" id="studio" style="margin: 0px;"><a id="studiolink" href=".+?" class="categorylink">(.+?)</a></h2>} $xxx_data -> xxxstudio
+	return [list $xxxtitle "http://${xxxurl}" $xxxdate $xxxstars $xxxdirector $xxxgenre $xxxstudio]
+
+}
+
+
+
+
+
+proc ::ioNiNJA::XXXCDU::xonair {xxxname release {xxxurl ""} {skipcheck 0}} { global pwd path ioNJ uid gid
+
+	set site  "http://www.xonair.com"
+	lassign "- - - - - -" xxxtitle xxxdate xxxstars xxxdirector xxxgenre xxxstudio
+	if {$xxxurl == ""} {
+		iputs -nobuffer ok
+		set xxx_data [get_url "http://www.google.com/search?hl=en&btnI=I%27m+Feeling+Lucky&as_sitesearch=${site}&q=[regsub -all -nocase { } ${xxxname} {+}]"]
+	
+		if {![regexp -nocase {<a href="/url\?q\=(http://www.xonair.com/detail.cfm.+?)"} $xxx_data -> xxxurl]} {
+			return
+		}
+		#%41 A %42 B %43 C %44 D %45 E %46 F %47 G %48 H %49 I %4A J %4B K %4C L %4D M %4E N %4F O %50 P %51 Q %52 R %53 S %54 T %55 U %56 V %57 W %58 X %59 Y %5A Z %5C \ %5E ^ %5F _ %60 ` %61 a %62 b %63 c %64 d %65 e %66 f %67 g %68 h %69 i %6A j %6B k %6C l %6D m %6E n %6F o %70 p %71 q %72 r %73 s %74 t %75 u %76 v %77 w %78 x %79 y %7A z %82 ‚ %83 ƒ %84 „ %85 … %86 † %87 ‡ %88 ˆ %89 ‰ %8A Š %8B ‹ %8C Œ %8E Ž %91 ‘ %92 ’ %93 “ %94 ” %95 • %96 – %97 — %98 ˜  %99 ™ %9A š %9B › %9C œ %9E ž %9F Ÿ %A1 ¡ %A2 ¢ %A3 £ %A5 ¥ %A6 | %A7 § %A8 ¨ %A9 © %AA ª %AB « %AC ¬ %AD ¯ %AE ® %AF ¯ %B0 ° %B1 ± %B2 ² %B3 ³ %B4 ´ %B5 µ %B6 ¶ %B7 · %B8 ¸ %B9 ¹ %BA º %BB » %BC ¼ %BD ½ %BE ¾ %BF ¿ %C0 À %C1 Á %C2 Â %C3 Ã %C4 Ä %C5 Å %C6 Æ %C7 Ç %C8 È %C9 É %CA Ê %CB Ë %CC Ì %CD Í %CE Î %CF Ï %D0 Ð %D1 Ñ %D2 Ò %D3 Ó %D4 Ô %D5 Õ %D6 Ö %D7   %D8 Ø %D9 Ù %DA Ú %DB Û %DC Ü %DD Ý %DE Þ %DF ß %E0 à %E1 á %E2 â %E3 ã %E4 ä %E5 å %E6 æ %E7 ç %E8 è %E9 é %EA ê %EB ë %EC ì %ED í %EE î %EF ï %F0 ð %F1 ñ %F2 ò %F3 ó %F4 ô %F5 õ %F6 ö %F7 ÷ %F8 ø %F9 ù %FA ú %FB û %FC ü %FD ý %FE þ %FF ÿ
+		set xxxurl [string map [list %21 ! %23 # %25 % %26 & %27 ' %2A * %2B + %2C , %2D - %2E . %2F / %30 0 %31 1 %32 2 %33 3 %34 4 %35 5 %36 6 %37 7 %38 8 %39 9 %3A : %3C < %3D = %3E > %3F ? %40 @] $xxxurl]
+	
+		regsub {lang=..} $xxxurl {lang=US} xxxurl 
+		regsub {&amp;sa=U&amp;ei=.*} $xxxurl {} xxxurl
+	
+	} else {
+		set xxxurl "http://$xxxurl"
+	}
+
+	set xxx_data [get_url "$xxxurl"]
+	
+
+	if {![regexp -nocase {<td colspan="2" style="padding-bottom:10px\; font-size:16px\; font-family:verdana"><b style="color:CC0000">(.+?)</b>} $xxx_data -> xxxtitle]} {
+		return
+	}
+	
+	regexp -nocase {<span style="font-size:12px">\(<b>(.+?)</b> - (\d\d\d\d)\)</span>} $xxx_data -> xxxmedia xxxyear
+	
+	set title_first [string toupper [string index $xxxtitle 0]]
+	
+	if {!$skipcheck} {
+		if {[string tolower [string index $release 0]] != [string tolower $title_first] && $ioNJ(xxx_check_1st_letter)} {
+				putlog -error "XXXiNFO: $release != $xxxtitle -> Skipping -> 1st letter doesn't match"
+				return
+		}
+	}
+	
+						
+					
+	
+	if {[regexp -nocase {<img src="(http://image3.imageservers.com/pdimages/10000000/\d+.jpg)" border="0">} $xxx_data -> xxxcover]} {
+		if {$ioNJ(xxx_img_front) != ""} {
+			save_pic_custom $xxxcover [string map "%release $release" [file join "$path" $ioNJ(xxx_img_front)]]
+		}
+	}
+	if {[regexp -nocase {<br><img src="(http://image3.imageservers.com/pdimages/10000000/\d+\_p.jpg)" border="0">} $xxx_data -> xxxbackcover]} {
+		if {$ioNJ(xxx_img_back) != ""} {
+			save_pic_custom $xxxbackcover [string map "%release $release" [file join "$path" $ioNJ(xxx_img_back)]]
+		}
+	}
+	
+
+	
+	set xxxgenre ""
+	set allcat [regexp -all -inline -nocase {<a href="searchGenre.cfm\?genre=\d+&pid=[a-z]+\&lang=US" style="text-decoration:none">([^<]+)} $xxx_data]
+	foreach {crap cat} $allcat {
+		lappend xxxgenre $cat
+	}
+
+	set xxxstars ""
+	set allact [regexp -all -inline -nocase {<a href="searchPerf.cfm\?perf=\d+\&pid=[a-z]+\&lang=US" style="text-decoration:none">([^<]+)} $xxx_data]
+	foreach {crap act} $allact {
+		lappend xxxstars $act
+	}
+	if {$xxxstars == ""} { set xxxstars "unknown" }
+	
+	regexp -nocase {<td><a href="/search.cfm\?lang=US&pid=.+?&str=.+?&view=all&searchby=director">(.+?)<} $xxx_data -> xxxdirector
+	regexp -nocase {<td nowrap><b style="color:666666">Release Date:</b></td>.+?<td>(.+?)</td>} $xxx_data -> xxxdate
+	regexp -nocase {<td nowrap><b style="color:666666">Studio:</b></td>.+?<td><a href="searchStudio.cfm\?studio=\d+&pid=.+?&lang=US" style="text-decoration:none">(.+?)</a></td>} $xxx_data -> xxxstudio
+
+	return [list $xxxtitle $xxxurl $xxxyear $xxxstars $xxxdirector $xxxgenre $xxxstudio]
+
+}
+
+proc ::ioNiNJA::XXXCDU::nfo {xxxname release} {global ioNJ pwd path
+	 set company      "-"
+     set releasegroup "-"
+     set genre        "-"
+     set dir          [file tail $pwd]
+     set releasegroup [get_grpname $dir]
+	 lassign "- - - - - - -" xxxtitle xxxurl xxxdate xxxstars xxxdirector xxxgenre xxxstudio
+    
+     if {[set nfo [lindex [get_files $path *.nfo] 0]] == ""} { return }
+          
+     if {![file exists $nfo] && ![file isfile $nfo]} { return }
+   
+     if {![regexp -nocase $ioNJ(xxx_paths) $pwd]} { return }
+	 
+     #Get xxx GENRE from NFO
+     set nfofile [readfile $nfo]
+     
+	 regsub -all "ÿ" $nfofile " " nfofile
+     regsub -all "\&" $nfofile "And" nfofile
+     regsub -all "\&" $nfofile "And" nfofile
+     regsub -all -- {[^[:ascii:] ]|ÿ|þ} $nfofile {} nfofile
+	 
+     if {![regexp -nocase {(?:genre|g e n r e|category)(?:\_|\W)+([\w\'-.,\-]+(?:\s[\w\'-,\-]+)*)} $nfofile -> xxxgenre]} {
+     		set xxxgenre "-"
+     } else {
+     	    set xxxgenre [split [lindex [split $xxxgenre \n] 0] ,]
+     }
+     
+     if {![regexp -nocase {(?:company|studio|prod studio|prod company)(?:\_|\W)+([\w\'-.]+(?:\s[\w\'-]+)*)} $nfofile -> xxxstudio]} {
+          set xxxstudio "-"
+     } else {
+     	set xxxstudio [lindex [split $xxxstudio \n] 0]
+     }
+	 
+	 if {![regexp -nocase {(?:cast|starring)(?:\_|\W)+([\w\'-.,]+(?:\s[\w\'-,]+)*)} $nfofile -> xxxstars]} {
+          set xxxstars "-"
+     } else {
+     	set xxxstars [split $xxxstars ,]
+     }
+	 
+	 if {![regexp -nocase {(?:title)(?:\_|\W)+([\w\'-.]+(?:\s[\w\'-]+)*)} $nfofile -> xxxtitle]} {
+          set xxxtitle "-"
+     } else {
+     	set xxxtitle [lindex [split $xxxtitle \n] 0]
+     }
+	 
+	 if {![regexp -nocase {(?:Release Date|Release|rls.date)(?:\_|\W)+([\w\'-\.,\-/\\]+(?:\s[\w\'-,\-/\\]+)*)} $nfofile -> xxxdate]} {
+          set xxxdate "-"
+     } else {
+     	set xxxdate [lindex [split $xxxdate \n] 0]
+     }
+	 
+	return [list $xxxtitle $xxxurl $xxxdate $xxxstars $xxxdirector $xxxgenre $xxxstudio]
+}
+
+
+
+proc ::ioNiNJA::XXXCDU::xxx_sorting {xxxtitle xxxurl xxxdate xxxstars xxxdirector xxxgenre xxxstudio release group} {global ioNJ pwd path
+
+
+	if {$ioNJ(xxx_extras) != "" && $ioNJ(xxx_sorting_theme) != ""} {
+		set tempspecial ""
+		foreach string [split $release .] {
+	         	if {[regexp -nocase $ioNJ(xxx_extras) [set string [regsub -all {\(|\)} [regsub -all {\.|_} $string { }] {}]]]} {
+		        	lappend tempspecial $string
+	          	}
+	       }
+	       if {$tempspecial != ""} {
+	        	set special_info  [string map [list %special [string trim [join $tempspecial " - "]]] $ioNJ(special_sorting_theme)]
+				set xxxtitle "${xxxtitle}$special_info"
+		}
+	}
+
+	#SORTING
+	if {$ioNJ(xxx_sorting) != ""} {
+		set year "Unkonwn"
+		regexp -nocase {(\d\d\d\d)} $xxxdate -> year
+		set title_first [string toupper [string index $xxxtitle 0]]
+		set decade [string replace $year end end 0]
+		foreach sort [split [string trim $ioNJ(xxx_sorting)] \n] {
+		
+			lassign $sort pwdmatch sort
+			
+			if {![regexp -nocase $pwdmatch $pwd]} { continue }
+			
+			if {![regexp -nocase {[A-Za-z]} $title_first]} { set title_first "#" }
+			put_log "DEBUG XXX %xxxDirector_First [string index $xxxdirector 0] %xxxDirector $xxxdirector %xxxYear $year %xxxTitle_First $title_first %group $group %xxxTitle $xxxtitle %xxxDate $xxxdate  %xxxStudio $xxxstudio %release $release "
+			set replace_sort [regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} [list %xxxDirector_First [string index $xxxdirector 0] %xxxDirector $xxxdirector %xxxYear $year %xxxTitle_First $title_first %group $group %xxxTitle $xxxtitle %xxxDate $xxxdate  %xxxStudio $xxxstudio %release $release] {}]
+		
+ 			if {[string match "*%xxxDirector*" $sort] && ( $xxxdirector == "-" )} { 
+				continue 
+			}
+			
+			if {[string match "*%xxxYear*" $sort] && ( $xxxdate == "-" )} { 
+				continue 
+			}
+
+			 if {[string match "*%xxxStudio*" $sort] && ( $xxxstudio == "-" )} { 
+				continue 
+			}
+			if {[string match "*%xxxStars*" $sort] && ( $xxxstars == "-" )} { 
+				continue 
+			}
+			if {[string match "*%xxxGenre*" $sort] && ( $xxxgenre == "-" )} { 
+				continue 
+			}
+			
+			set sort [list "[string map $replace_sort $sort]"]
+			
+			if {[string match "*%xxxStars*" $sort]} {
+				set tempsort ""
+				foreach item $sort {
+					foreach cou $xxxstars {
+						set cou [string trim $cou]
+						regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} $cou {\-} cou
+						lappend tempsort [string map [list %xxxStars_First [string index $cou 0] %xxxStars $cou] $item]
+					}
+				}
+				set sort $tempsort
+			}
+
+			if {[string match "*%xxxGenre*" $sort]} {
+				set tempsort ""
+					foreach item $sort {
+						foreach cou $xxxgenre {
+							set cou [string trim $cou]
+							regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} $cou {\-} cou
+							lappend tempsort [string map [list %xxxGenre $cou] $item]
+						}
+					}
+				set sort $tempsort
+			}
+ 
+			foreach item $sort {
+				if {[regexp -nocase  $ioNJ(notparent) $path]} {
+					set linkto [file dirname $path]
+				} else {
+					set linkto $path
+				}
+				sorting $ioNJ(xxx_sym_type) $linkto $item $pwd
+			}
+ 	
+
+		}
+	}
+
+
+}
+
+if {![info exists pwd]} {
+	set pwd  "[file dirname [lindex $args 2]]"
+	set path "[file dirname [lindex $args 0]]"
+        ::ioNiNJA::XXXCDU::xxx_info
+}

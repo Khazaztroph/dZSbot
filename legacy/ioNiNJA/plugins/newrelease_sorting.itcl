@@ -1,0 +1,51 @@
+if {![info exists args]} { set args ""}
+regsub -all {\\} $args {/} args
+
+source [file join [file dirname [info script]] newrelease_sorting.cfg]
+
+namespace eval ::ioNiNJA::New_Sorting {
+    namespace import -force ::ioNiNJA::*
+}
+
+
+proc ::ioNiNJA::New_Sorting:Main {} {global ioNEW path pwd
+
+     set rel   [file tail $path]
+     foreach sort [split [string trim $ioNEW(new_sym)] \n] {
+     	set replace_sort [regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} [list %first_letter [string index $rel 0] %release $rel] {}]
+     	
+     	lassign $sort pwd_sort num sort
+	     	
+     	if {![regexp -nocase $pwd_sort $pwd]} { continue }
+     	
+     	 set sort [list "[string map $replace_sort $sort]"]
+
+
+ 	foreach item $sort {
+ 	
+ 		set new_dirs [get_dirs [file dirname $item] *]
+ 		
+ 	     	if {[llength $new_dirs] > $num} {  
+ 	     	
+	     		set delete  [expr [llength $new_dirs] - $num]
+	     		
+	     	 	foreach {1 2} [join [get_sorted_time $new_dirs]] {
+	     	 	
+	     	 		if {$delete == 0} { break }
+	     	 		catch {file delete -force $1}
+	     	 		set delete [expr $delete -1]
+	     	 	}
+	     	 }
+ 		sorting $ioNEW(sym_type) $path $item $pwd
+ 	}
+ 	
+
+    }
+}
+
+
+if {![info exists pwd]} {
+	set pwd  [file dirname [lindex $args 2]]
+	set path [file dirname [lindex $args 0]]
+	::ioNiNJA::New_Sorting:Main
+}

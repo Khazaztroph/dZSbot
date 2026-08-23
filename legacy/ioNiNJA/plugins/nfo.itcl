@@ -1,0 +1,75 @@
+namespace eval ::ioNiNJA::NFO {
+    namespace import -force ::ioNiNJA::*
+}
+
+# timestamp helper (same style as your unpack script)
+# proc ts_date {} {
+#     return [clock format [clock seconds] -format "%d.%m.%Y"]
+# }
+
+# proc ts_time {} {
+#     return [clock format [clock seconds] -format "%H:%M:%S"]
+# }
+
+proc ::ioNiNJA::NFO::Main {} {
+    global path args
+
+    # resolve path from args if not set
+    if {![info exists path] || $path eq ""} {
+        set path [lindex $args 0]
+    }
+
+    if {$path eq ""} {
+        iputs -nobuffer "No path provided"
+        return
+    }
+
+    # get all nfo files in directory
+    set list [get_files $path *.nfo]
+
+    if {$list eq ""} {
+        iputs -nobuffer "No NFO File(s) found!"
+        return
+    }
+
+    set i 0
+
+    while {[lindex $list $i] ne ""} {
+
+        set nfofile [lindex $list $i]
+
+        if {![file exists $nfofile]} {
+            incr i
+            continue
+        }
+
+        # set time " [ts_date] - [ts_time] -"
+
+        # iputs -nobuffer "$time NFO START: $nfofile"
+
+        iputs -nobuffer " "
+
+        set fp [open $nfofile r]
+        fconfigure $fp -encoding iso8859-1
+
+        while {![eof $fp]} {
+            if {[gets $fp line] >= 0} {
+                if {$line ne ""} {
+                    # iputs -nobuffer "$time NFO: $line"
+                    iputs -nobuffer " $line"
+                }
+            }
+        }
+
+        close $fp
+
+        # iputs -nobuffer "$time NFO DONE: $nfofile"
+
+        iputs -nobuffer " "
+
+        incr i
+    }
+}
+
+# ENTRY POINT
+::ioNiNJA::NFO::Main

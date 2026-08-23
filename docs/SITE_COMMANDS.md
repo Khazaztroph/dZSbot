@@ -4,6 +4,10 @@ The `site` module provides IRC commands for common site status checks:
 
 - `!df [section]` - show free disk space for configured sections.
 - `!bw` - show current ioFTPD upload/download bandwidth.
+- `!bnc [name]` - show configured BNC, IRC and FTP connection status for admins.
+- `!quota`, `!weekly` - show weekly quota and top uploader status.
+- `!approve`, `!nuke`, `!unnuke`, `!reqfilled`, `!reqdel` - forward site actions.
+- `!incomplete` - show incomplete releases from cache.
 
 ## Enable The Module
 
@@ -18,11 +22,17 @@ The commands are enabled by default:
 ```tcl
 ::dZSbot::Config::Set site.commands.df.enabled 1
 ::dZSbot::Config::Set site.commands.bw.enabled 1
+::dZSbot::Config::Set site.commands.bnc.enabled 1
+::dZSbot::Config::Set site.commands.quota.enabled 1
 ::dZSbot::Config::Set site.commands.reply_target "channel"
+::dZSbot::Config::Set site.commands.df.reply_target "private"
+::dZSbot::Config::Set site.commands.bnc.reply_target "private"
 ```
 
 Set `site.commands.reply_target` to `private` if the output should be sent as a
-private message instead of to the channel.
+private message instead of to the channel. `site.commands.df.reply_target` and
+`site.commands.bnc.reply_target` override the global site setting for `!df` and
+`!bnc`.
 
 ## Disk Free: !df
 
@@ -39,13 +49,13 @@ C:/ioFTPD/scripts/dzsbot-df-sections.tsv
 Example content:
 
 ```text
-MOVIES	//MEV-F4S/ARKiVE/MOViES
-TV	//MEV-F4S/ARKiVE/TV
-MUSIC	//NAS_F4S/ARKiV/MUSiC
-APPS	//MEV-F4S/ARKiVE3/APPS
-TV-KiDS	//MEV-F4S/ARKiVE3/KiDS TV
-UHD	//MEV-F4S/ARKiVE3/MOViES UHD
-AUDiOBOOKS	//MEV-F4S/ARKiVE/AUDiOBOOKS
+MOVIES	D:/FTP-ROOT-DIR/MOVIES
+TV	D:/FTP-ROOT-DIR/TV
+MUSIC	D:/FTP-ROOT-DIR/MUSIC
+APPS	D:/FTP-ROOT-DIR/APPS
+TV-KiDS	D:/FTP-ROOT-DIR/TV-KiDS
+UHD	D:/FTP-ROOT-DIR/UHD
+AUDIOBOOKS	D:/FTP-ROOT-DIR/AUDIOBOOKS
 ```
 
 Run the exporter with PowerShell:
@@ -184,6 +194,164 @@ Expected output:
 BW: UP 1 @ 2.00 MB/s | DN 1 @ 1.00 MB/s | idle 1 | total 3.00 MB/s
 BW: UP | user | 2.00 MB/s | /MOVIES/Example.Release-GRP
 BW: DN | user | 1.00 MB/s | /TV/Example.Show-GRP
+```
+
+## BNC Status: !bnc
+
+`!bnc` checks configured connectivity targets. Normal entries check whether a
+TCP port accepts a connection. A target using `eggdrop 0` reports the active IRC
+connection Eggdrop is already using, which is the best choice for a remote ZNC.
+Use it for ZNC/BNC, IRC server and FTP/ioFTPD reachability checks. The command
+is admin-only and uses the same access policy as `!dzb status`:
+
+```tcl
+::dZSbot::Config::Set status.admin_channel "#staff"
+::dZSbot::Config::Set status.require_channel_op 1
+```
+
+Configure targets in `config/modules/site.conf`:
+
+```tcl
+::dZSbot::Config::Set site.commands.bnc.enabled 1
+::dZSbot::Config::Set site.commands.bnc.timeout_ms 3000
+::dZSbot::Config::Set site.commands.bnc.targets {
+    {ZNC eggdrop 0}
+    {IRC irc.example.net 6697}
+    {FTP 127.0.0.1 5420}
+}
+```
+
+IRC examples:
+
+```text
+!bnc
+!BNC prime
+```
+
+Expected output:
+
+```text
+BNC: 3/3 online
+BNC: ZNC | OK | leon.seedhost.eu:+29025 | online 2h 14m
+BNC: IRC | OK | irc.example.net:6697 | 32ms
+BNC: FTP | OK | 127.0.0.1:5420 | 2ms
+```
+
+## Weekly Quota: !quota
+
+`!quota` and `!weekly` read a TSV cache file and print a weekly uploader list.
+By default the command is admin-only through the same access policy as
+`!dzb status` and `!bnc`.
+
+Configure it in `config/modules/site.conf`:
+
+```tcl
+::dZSbot::Config::Set site.commands.quota.enabled 1
+::dZSbot::Config::Set site.commands.quota.admin_only 1
+::dZSbot::Config::Set site.commands.quota.channel "#monstra"
+::dZSbot::Config::Set site.commands.quota.cache_file "C:/ioFTPD/logs/dzsbot-quota.tsv"
+::dZSbot::Config::Set site.commands.quota.cache_max_age_seconds 3600
+::dZSbot::Config::Set site.commands.quota.server_name "SomeServer"
+::dZSbot::Config::Set site.commands.quota.required_gb 121.18
+::dZSbot::Config::Set site.commands.quota.period_label "Weekly"
+::dZSbot::Config::Set site.commands.quota.rule_label "20% top-1"
+::dZSbot::Config::Set site.commands.quota.days_left ""
+::dZSbot::Config::Set site.commands.quota.week_reset_day 1
+::dZSbot::Config::Set site.commands.quota.limit 13
+::dZSbot::Config::Set site.commands.quota.dayup_limit 3
+::dZSbot::Config::Set site.commands.quota.fail_line "FAIL Who will die this time? R.I.P"
+```
+
+Set `site.commands.quota.channel` to force output into a fixed channel. Leave it
+empty to reply where the command was used.
+
+The TSV format is:
+
+```text
+user	status	weekly_gb	today_gb	optional_day_rank
+```
+
+Example:
+
+```text
+aCe	pass	605.92	169.76
+foyel	pass	509.75	114.82
+rrimul	pass	481.37	139.27
+trax	pass	471.39	90.47
+NasBanH	pass	416.25	129.11
+```
+
+If `optional_day_rank` is omitted, dZSbot calculates `#1 DAYUP`, `#2 DAYUP`
+and so on from `today_gb`, controlled by `site.commands.quota.dayup_limit`.
+
+IRC example:
+
+```text
+!quota
+!weekly
+```
+
+Expected output:
+
+```text
+[ SomeServer]-[ QUOTA 121.18/GB ]-[ Weekly 20% top-1 ]-[ 4 DAYS LEFT ]
+01: aCe pass with 605.92 GB | today: 169.76 GB (#1 DAYUP)
+02: foyel pass with 509.75 GB | today: 114.82 GB
+03: rrimul pass with 481.37 GB | today: 139.27 GB (#2 DAYUP)
+FAIL Who will die this time? R.I.P
+```
+
+Auto announce the same top uploader output at a fixed interval:
+
+```tcl
+::dZSbot::Config::Set site.commands.quota.auto.enabled 1
+::dZSbot::Config::Set site.commands.quota.auto.channel "#monstra"
+::dZSbot::Config::Set site.commands.quota.auto.interval_seconds 7200
+```
+
+## Site Actions
+
+These IRC commands forward to the FTP server as `SITE` commands over the
+configured site command transport:
+
+```text
+!approve <release/path>
+!nuke <release/path> <multiplier> <reason>
+!unnuke <release/path> <reason>
+!unuke <release/path> <reason>
+!reqfilled <request/release>
+!reqdel <request/release>
+```
+
+Configure command names and access:
+
+```tcl
+::dZSbot::Config::Set site.commands.actions.enabled 1
+::dZSbot::Config::Set site.commands.actions.admin_only 1
+::dZSbot::Config::Set site.commands.actions.reply_target "private"
+::dZSbot::Config::Set site.commands.actions.command.APPROVE "APPROVE"
+::dZSbot::Config::Set site.commands.actions.command.NUKE "NUKE"
+::dZSbot::Config::Set site.commands.actions.command.UNNUKE "UNNUKE"
+::dZSbot::Config::Set site.commands.actions.command.REQFILL "REQFILL"
+::dZSbot::Config::Set site.commands.actions.command.REQDEL "REQDEL"
+```
+
+## Incomplete List
+
+`!incomplete [section|release]` reads a TSV cache and shows incomplete releases.
+
+```tcl
+::dZSbot::Config::Set site.commands.incomplete.enabled 1
+::dZSbot::Config::Set site.commands.incomplete.cache_file "C:/ioFTPD/logs/dzsbot-incomplete.tsv"
+::dZSbot::Config::Set site.commands.incomplete.cache_max_age_seconds 3600
+::dZSbot::Config::Set site.commands.incomplete.sections {MOVIES TV FLAC XXX-PAY}
+::dZSbot::Config::Set site.commands.incomplete.limit 20
+```
+
+Cache format:
+
+```text
+timestamp	section	release	path	user	group
 ```
 
 ## Optional Scheduler

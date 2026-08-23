@@ -1,0 +1,85 @@
+# NOTE: <>'s are invalid in real filenames so useful to return them for purely
+# fake subdirectories because the server won't try to resolve them and thus
+# saves a lot of overhead.
+proc AddDummy {name {link ""}} {
+    set t [clock seconds]
+    if {[string length $link] != 0} {
+        ioVirtual AddDir 0 $t $t "User" "Group" 0777 $name $link
+    } else {
+        ioVirtual AddDir 0 $t $t "User" "Group" 0777 $name {}
+    }
+}
+
+if {![file exists "../scripts/nxLib.tcl"] || ![file exists "../scripts/init.itcl"]} {
+    set t [clock seconds]
+    AddDummy "! < Error - Doesn't look like nxTools installed! >"
+    return 1
+}
+
+proc DoNxVirtualSearch {limit pattern} {
+
+#    AddDummy "! \[ Reset Pattern \]"
+    AddDummy "! < --- use 'list <pattern>' for new searches, '*' for all --- >"
+
+    if {[catch {::nxLib::DbOpenFile [namespace current]::DirDb "DupeDirs.db"} error]} {
+        ::nxLib::ErrorLog SiteDupe $error
+        return 1
+    }
+    set count 0
+    regsub -all -- {[\s\*]+} "*$pattern*" "*" pattern2
+    set dbpattern [::nxLib::DbToLike $pattern2]
+
+    DirDb eval "SELECT * FROM DupeDirs WHERE DirName LIKE '$dbpattern' ESCAPE '\\' ORDER BY TimeStamp DESC LIMIT $limit" values {
+        if {!$count} {
+            AddDummy "! < --- SEARCH RESULTS for '$pattern' --- >"
+        }
+        incr count
+        ioVirtual AddLink "$values(DirPath)$values(DirName)"
+    }
+
+    if {!$count} {
+        AddDummy "! < --- NO MATCHES for '$pattern' --- >"
+    }
+
+    if {$count == $limit} {
+        set total [DirDb eval "SELECT COUNT(*) FROM DupeDirs WHERE DirName LIKE '$dbpattern' ESCAPE '\\'"]
+        AddDummy "! < --- TRUNCATED: $count of $total results shown --- >"
+    }
+
+    DirDb close
+    return 1
+}
+
+proc SetupNxVirtualSearch {} {
+    global ioArgs
+
+    putlog "search: $ioArgs"
+
+    # need to strip off quotes from arguments
+    set fileName    [string range [lindex $ioArgs 0] 1 end-1]
+    set globPattern [string range [lindex $ioArgs 1] 1 end-1]
+    set oldPattern  [string range [lindex $ioArgs 2] 1 end-1]
+    
+    if {[string equal -nocase $fileName {/Search/! [ Reset Pattern ]}] || $globPattern == {! [ Reset Pattern ]}} {
+        AddDummy "||RESOLVED||" "/Search/"
+        return 1
+    }
+
+    if {[llength [file split $fileName]] > 2} {
+        # reject anything that looks like it might be a subdir like the fake ! [...] entries
+        return 0
+    }
+    
+    if {$globPattern == ""} {
+        set globPattern $oldPattern
+    }
+    
+    if {$globPattern == ""} {
+        AddDummy "! < NO SEARCH SPECIFIED - use 'list <pattern>' >"
+        return 1
+    }
+    
+    DoNxVirtualSearch 50 $globPattern
+}
+
+SetupNxVirtualSearch

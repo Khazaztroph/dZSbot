@@ -161,22 +161,41 @@ NEWDATE: ...
 ```
 
 These publish normalized `site.newdir` and `site.upload.complete` events. The
-Upload module announces them to `upload.announce.channel` and metadata modules
-such as IMDb/Music can react to `site.newdir`.
+Upload module announces them to `upload.announce.channel`, or to a routed
+section channel when `upload.announce.section_channels` is configured. PRE and
+metadata modules such as IMDb/Music use their own `#pre` channel settings and
+can still react to `site.newdir`.
 For `COMPLETE_STAT_RACE_*`, dZSbot reads ioNiNJA's average upload speed
 (`a_avgspeed`) and adds it to the IRC complete line.
 
 nxTools compatibility events publish normalized `site.legacy.*` events. The
 Legacy module announces them with pzs-ng/ioNiNJA-style templates from
-`theme.template.legacy.*`, controlled by `config/modules/legacy.conf`.
+`theme.template.legacy.*`, controlled by `config/modules/legacy.conf`. Legacy
+events can use the same section routing as uploads, which is useful for keeping
+music/XXX activity in one channel, Nordic in another, and the rest in an ops
+channel.
 
 Config:
 
 ```tcl
 ::dZSbot::Config::Set upload.announce.enabled 1
-::dZSbot::Config::Set upload.announce.channel "#pre"
+::dZSbot::Config::Set upload.announce.channel "#spam"
+::dZSbot::Config::Set upload.announce.default_channel "#opers"
+::dZSbot::Config::Set upload.announce.section_channels {
+    {#spam {MUSIC FLAC MP3 XXX XXX-PAY}}
+    {#monstra {TV-HD-NORDIC TV-SD-NORDIC X264-NORDIC X265-NORDIC UHD-NORDIC *-NORDIC}}
+}
 ::dZSbot::Config::Set upload.announce.events {newdir first half leader complete badfile nfo doublesfv speedtest incomplete}
 ::dZSbot::Config::Set upload.announce.event.racer.enabled 0
+::dZSbot::Config::Set upload.announce.sections {*}
+```
+
+Make sure Eggdrop also joins every routed announce channel:
+
+```tcl
+channel add #spam
+channel add #monstra
+channel add #opers
 ```
 
 Example complete output:

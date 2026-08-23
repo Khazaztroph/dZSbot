@@ -1,0 +1,1177 @@
+regsub -all {\\} $args {/} args
+set ticks [clock clicks -milliseconds]
+
+if { !$ioNJ(load_cfg_startup) } {
+	if {[catch {source "../scripts/ioNiNJA/ioNiNJA.cfg"} error]} {
+		iputs -nobuffer $error
+		return
+	}
+
+	if {[catch {source "../scripts/ioNiNJA/themes/$ioNJ(themefile)"} error]} {
+		iputs -nobuffer $error
+		return
+	}
+}
+
+if {![info exists pwd]} {
+	set pwd "/ioNiNJA12/"
+}
+
+set ioNiNJA_rescan_allowed [expr {
+	[string equal -nocase [lindex $args 0] "RESCAN"] &&
+	[info exists ioNJ(rescan_nocheck_dirs_allowed)] &&
+	$ioNJ(rescan_nocheck_dirs_allowed)
+}]
+if {[regexp -nocase $ioNJ(skipdirs) $pwd] && !$ioNiNJA_rescan_allowed} {
+  	return 
+}
+unset ioNiNJA_rescan_allowed
+
+namespace eval ::ioNiNJA::ZipScript {
+    namespace import -force ::ioNiNJA::*
+}
+
+#######################
+## ZiP SCRiPT
+#######################
+proc ::ioNiNJA::ZipScript::outstats {newracer newleader announce announcestats file} {global args ioNJ uid gid pwd path speed user group
+  set args 	    	[list [lindex $args 1] [lindex $args 2] [lindex $args 3]] 
+  set make_time     [vfs chattr $path 11]
+  set release_type  [vfs chattr $path 12]
+  set sfvfile 		[join [readchattr 35]]
+  if {[file exists $file]} {
+	set fsize 		[file size $file]
+  } else {
+	set fsize 		0
+  }
+  set total_files   [vfs chattr $path 13]
+  set nfo_name      [vfs chattr $path 15]
+  set present_files 0
+  set sample        [readchattr 20]
+  set extrainfo     [readchattr 25]
+  set extrainfo2    [readchattr 26]
+  set total_size    0
+  set total_speed   0
+  set time          [clock seconds]
+  if {![info exists uid]} {
+  	set user          [resolve uid 0]
+  	set ugroup        [resolve gid 0]
+  	set speed         0
+  } else {
+  	set user          [resolve uid $uid]
+  	set ugroup        [resolve gid $gid]
+  	set speed         [format %.0f $speed]
+  }
+  set tagline       [get_uinfo $user tagline]
+  set dir           [lindex [file split $pwd] end]
+  set fname         [file tail [lindex $args 2]]
+
+  set groupusers    ""
+  set replacevar    ""
+  set racers        ""
+  set groups        ""
+  set groupusers    ""
+  set totalracers   ""
+  set totalgroups   ""
+  set total_racers 	""
+ 
+  foreach f_stat [resolve list "$pwd"] {
+		lassign $f_stat io_fname io_type io_uid io_user io_gid io_group io_fsize mode attributes win-last-time unix-last-time win-alt-time unix-alt-time subdir-count rlink chatt uptime
+		if {[string match -nocase [file tail $file] $io_fname]} { 
+			set io_fsize $fsize
+			if {$speed == 0} { set speed 1}
+			set uptime [expr $fsize/$speed]
+		}
+		if {$uptime == 0} { set uptime 1} 
+		if {$io_fname == "." || $io_fsize == 0  || ![string match -nocase "*$io_fname*" $sfvfile] && ![regexp -nocase {\.zip$} $io_fname]} { continue }
+		incr present_files
+		if { [set io_speed [expr $io_fsize/$uptime]] == 0 } { set io_speed 1}
+		if {[set race_idx [lsearch -glob $racers $io_user]] == "-1"} { 
+  			lappend racers $io_user
+  			lappend groupusers [list $io_user $io_group]
+  			lappend total_racers "$io_user $io_group [format %.0f [expr ($io_fsize /1024.0)]] $io_speed 1 [expr 100 / $present_files]"
+  		} else {
+  			set temp [lindex $total_racers $race_idx]
+			set temp_files [expr [lindex $temp 4] + 1]
+			set old_size   [lindex $temp 2]
+			set old_speed  [lindex $temp 3]
+			set file_size  [expr {$io_fsize / 1024.0}]
+			set temp_size  [format %.0f [expr {$old_size + $file_size}]]
+			# Size-weighted average: total data divided by total transfer time.
+			set temp_time  [expr {$old_size / double($old_speed) + $file_size / double($io_speed)}]
+			set temp_speed [format %.0f [expr {$temp_size / $temp_time}]]
+  			set temp_percent [expr ($temp_files * 100) / $present_files]
+  			set total_racers [lreplace $total_racers $race_idx $race_idx "$io_user $io_group $temp_size $temp_speed $temp_files $temp_percent"]
+  		}
+  		
+  		if {[set g_race_idx [lsearch -glob $groups $io_group]] == "-1"} { 
+  			lappend groups $io_group
+  			lappend total_groups "$io_group [format %.0f [expr ($io_fsize /1024.0)]] $io_speed 1 [expr 100 / $present_files]"
+  		} else {
+  			set temp [lindex $total_groups $g_race_idx]
+			set temp_files [expr [lindex $temp 3] + 1]
+			set old_size   [lindex $temp 1]
+			set old_speed  [lindex $temp 2]
+			set file_size  [expr {$io_fsize / 1024.0}]
+			set temp_size  [format %.0f [expr {$old_size + $file_size}]]
+			# Size-weighted average: total data divided by total transfer time.
+			set temp_time  [expr {$old_size / double($old_speed) + $file_size / double($io_speed)}]
+			set temp_speed [format %.0f [expr {$temp_size / $temp_time}]]
+  			set temp_percent [expr ($temp_files * 100) / $present_files]
+  			set total_groups [lreplace $total_groups $g_race_idx $g_race_idx "$io_group $temp_size $temp_speed $temp_files $temp_percent"]
+  		}
+  	
+  		set total_size  [format %.0f [expr $total_size * 1.0 + ($io_fsize /1024.0)]]
+		set total_speed [expr $total_speed + $io_speed]
+	}
+	
+	if {$total_racers == ""} {
+		return
+	}
+	
+	set temp_new_race_stats [lsort -decreasing -integer -index 2 "$total_racers"]
+  	set rtop 0
+  	foreach race_stat $temp_new_race_stats {
+  		incr rtop
+  		lappend totalracers "$rtop [lindex $race_stat 0] [lindex $race_stat 1] [lindex $race_stat 2] [lindex $race_stat 3] [lindex $race_stat 4] [lindex $race_stat 5]"
+ 	 }
+
+	set temp_new_race_stats [lsort -decreasing -integer -index end-3 "$total_groups"]
+  	set gtop 0
+  	foreach race_stat $temp_new_race_stats {
+  		incr gtop
+  		lappend totalgroups "$gtop [lindex $race_stat 0] [lindex $race_stat 1] [lindex $race_stat 2] [lindex $race_stat 3] [lindex $race_stat 4]"
+ 	 }
+
+
+	# get dirname and change it if it's a subdir. Mostley for announce purpose but also for groupname
+			
+	if {[regexp -nocase  $ioNJ(notparent) $dir]} {
+		set sample [readparentchattr 20]
+		set nfo_name [readparentchattr 15]
+		if {$nfo_name == ""} { symlink_proc nfo 1 ; set nfo_name 1 }
+		set parent [lindex [file split $pwd] end-1]
+		set subdir ${dir}
+		set dir "${parent}"
+   	}
+
+ 	 if {$present_files == $total_files } { 
+ 	 	if {$nfo_name == "" && ![regexp -nocase  $ioNJ(no_sym_nfo) $pwd] && $ioNJ(no_sym_nfo) != ""} {
+ 	 		symlink_proc cd 0
+ 	 		symlink_proc nfo 1
+ 	 		set complete 0
+ 	 	} elseif {$sample == "" && [regexp -nocase -- $ioNJ(sym_sample) $pwd] && $ioNJ(sym_sample) != ""} {
+ 	 		symlink_proc cd 0
+			symlink_proc sample 1
+			set complete 1
+		} else {
+ 	 		set complete 1 
+ 	 		symlink_proc cd 0
+ 	 	}
+ 	 	
+ 	 } else { 
+ 	 	set complete 0
+ 	 }
+ 	 
+ 	
+	if {$complete && ![info exists no_complete]} {
+		lassign [get_stats] racer_dayup racer_wkup racer_mnup racer_allup
+		set temp_racestats ""
+		foreach race_stat $totalracers {
+		    set dayup [expr [lsearch -glob $racer_dayup "[lindex $race_stat 1] *"] + 1]
+			set wkup  [expr [lsearch -glob $racer_wkup "[lindex $race_stat 1] *"] + 1]
+			set mnup  [expr [lsearch -glob $racer_mnup "[lindex $race_stat 1] *"] + 1]
+			set allup [expr [lsearch -glob $racer_allup "[lindex $race_stat 1] *"] + 1]
+			lappend temp_racestats "$race_stat $dayup $wkup $mnup $allup"
+		}
+		
+		set totalracers $temp_racestats	
+		set racestats [lsort -increasing -integer -index end-6 "$totalracers"]
+		lassign [lindex $racestats end] crap u_fastest_name u_fastest_gname crap u_fastest_speed
+		lassign [lindex $racestats 0] crap u_slowest_name u_slowest_gname crap u_slowest_speed
+		append replacevar " %u_slowest_name {$u_slowest_name} %u_slowest_gname {$u_slowest_gname} %u_slowest_speed {[format_speed $u_slowest_speed]} %u_fastest_name {$u_fastest_name} %u_fastest_gname {$u_fastest_gname} %u_fastest_speed {[format_speed  $u_fastest_speed]}"
+	}
+		
+   
+	# MP3INFO
+	if {[lindex $extrainfo2 0] == "0"} { 	
+		append replacevar " %audio_artist {[lindex $extrainfo2 5]} %audio_album {[lindex $extrainfo2 3]} %audio_title {[lindex $extrainfo2 end-1]} %audio_bitrate {[lindex $extrainfo2 2]} %audio_producer {[lindex $extrainfo2 6]} %audio_description {[lindex $extrainfo2 8]} %audio_genre {[lindex $extrainfo2 7]} %audio_year {[lindex $extrainfo2 4]} %audio_samplerate {[lindex $extrainfo2 15]} %audio_writeapp {[lindex $extrainfo2 10]} %audio_bitdepth {[lindex $extrainfo2 16]} %audio_language {[lindex $extrainfo2 17]} %audio_catalog {[lindex $extrainfo2 18]} %audio_duration {[lindex $extrainfo2 1]} %audio_riptool {[lindex $extrainfo2 19]} %audio_type {[lindex $extrainfo2 end]} %audio_channels {[lindex $extrainfo2 14]} %audio_media {[lindex $extrainfo2 13]} %audio_recorddate {[lindex $extrainfo2 9]} %audio_retail {[lindex $extrainfo2 12]} %audio_ripdate {[lindex $extrainfo2 11]}"
+		set release_type "FLAC"
+	}
+	if {[lindex $extrainfo 0] == "0"} { 
+		append replacevar " %audio_artist {[lindex $extrainfo 1]} %audio_album {[lindex $extrainfo 2]} %audio_title {[lindex $extrainfo 3]} %audio_bitrate {[lindex $extrainfo 4]} %audio_mpeglayer {MPEG [lindex $extrainfo 5] Layer [lindex $extrainfo 6]} %audio_chanmode {[lindex $extrainfo 7]} %audio_genre {[lindex $extrainfo 8]} %audio_year {[lindex $extrainfo 9]} %audio_samplerate {[lindex $extrainfo 10]} %audio_lame_version {[lindex $extrainfo 11]} %audio_lame_preset {[lindex $extrainfo 12]} %audio_original {[lindex $extrainfo 13]} %audio_padding {[lindex $extrainfo 14]} %audio_duration {[lindex $extrainfo 15]} %audio_track_nr {[lindex $extrainfo 16]} %audio_vbr_old_or_new {[lindex $extrainfo 18]} %audio_vbr {[lindex $extrainfo 17]}"
+	}
+	
+	#SAMPLE INFO
+	  if {$sample != ""} {  	
+	   	append replacevar " %video_codec {[lindex $sample 0]} %video_framerate {[lindex $sample 1]} %video_bitrate {[lindex $sample 2]} %video_height {[lindex $sample 3]} %video_width {[lindex $sample 4]} %video_aspect_ratio {[lindex $sample 5]} %video_audio_codec {[lindex $sample 6]} %video_audio_bitrate_mode {[lindex $sample 8]} %video_audio_bitrate {[lindex $sample 7]}  %video_audio_chans {[lindex $sample 9]} %video_audio_samplerate {[lindex $sample 10]} %video_audio_resolution {[lindex $sample 11]}"
+	 	set release_type "VIDEO"
+	 }
+
+	#Set the progressbar
+	if {$present_files != 0 && $total_files != 0} {
+		set progsigns [format %.0f [expr ($present_files * [string length $ioNJ(charbar_filled)])/$total_files]]
+		if {$progsigns == 0} {
+	  		set pbar $ioNJ(charbar_missing)
+		} else {
+			set pbar [string range $ioNJ(charbar_filled) 0 [expr $progsigns - 1]]
+			set pbar "$pbar[string range $ioNJ(charbar_missing) $progsigns end]"
+		}
+
+	} else {
+		set pbar $ioNJ(charbar_missing)
+	}
+
+
+if {$present_files != 0 && $total_files != 0} {
+	if {[set duration [expr $time - $make_time]] == 0} { set duration 1 }
+	set missingfiles [expr $total_files - $present_files]
+	set percentdone [format %.1f [expr ((100.0 /$total_files) * $present_files)]]
+	set percentleft [format %.1f [expr 100 - $percentdone]]
+	if {[set a_avgspeed [format %.0f [expr $total_size / $duration]]] == 0} { set a_avgspeed 1}
+	set r_avgspeed [expr $total_speed / $present_files]
+	lassign [lindex $totalracers 0] crap u_winner_name  u_winner_gname u_winner_mbytes u_winner_avgspeed u_winner_files u_winner_percent
+	lassign [lindex $totalgroups 0] crap g_winner_name g_winner_mbytes g_winner_avgspeed g_winner_files g_winner_percent
+	set winner_idx [lsearch -glob $groupusers "$u_winner_name *"]
+	set lead_groupusers [lreplace $groupusers $winner_idx $winner_idx]
+	set user_idx   [lsearch -glob $groupusers "$user *"]
+	set groupusers [lreplace $groupusers $user_idx $user_idx]
+	set a_groupusers $groupusers
+	if {$groupusers == ""} { set groupusers "NoOne NoGroup"}
+	if {$total_files != $present_files } { set eta [format %.0f [expr (($total_size / $present_files) * $missingfiles) / $a_avgspeed]] } else { set eta 0 }
+	set total_size [format %.0f $total_size]
+	set esize [format %.0f [expr ($total_size / $present_files * [format %.1f $total_files])]]
+	set tempesize [format %.0f [expr $esize / 1024.0]]
+	
+} else {
+	if {[set duration [expr $time - $make_time]] == 0} { set duration 1 }
+	lassign [list 0 0 0 0 0 unknown 0 0 0 0] missingfiles percentdone percentleft a_avgspeed r_avgspeed a_groupusers eta esize tempesize total_size
+	lassign [lindex $totalracers 0] crap u_winner_name  u_winner_gname u_winner_mbytes u_winner_avgspeed u_winner_files u_winner_percent
+	lassign [lindex $totalgroups 0] crap g_winner_name g_winner_mbytes g_winner_avgspeed g_winner_files g_winner_percent
+	set winner_idx [lsearch -glob $groupusers "$u_winner_name *"]
+	set lead_groupusers [lreplace $groupusers $winner_idx $winner_idx]
+	set user_idx   [lsearch -glob $groupusers "$user *"]
+	set groupusers [lreplace $groupusers $user_idx $user_idx]
+	if {$groupusers == ""} { set groupusers "NoOne NoGroup"}
+	if {$lead_groupusers == ""} { set lead_groupusers "NoOne NoGroup"}
+}
+
+
+	append replacevar " %ioNiNJA_VER $ioNJ(VER) %sitename {$ioNJ(ssn)} %racers {$racers} %user {$user} %group {$ugroup} %tagline {$tagline} %complete_eta \"[duration $eta]\" %percentdone {$percentdone} %rtop {$rtop} %gtop {$gtop} %release {$dir} %total_files {$total_files} %files_uploaded {$present_files} %missing_files {$missingfiles} %estimated_size [format_size $esize] %total_size \"[format_size $total_size]\" %file_name {$fname} %average_speed \"[format_speed $a_avgspeed]\" %race_duration \"[duration $duration]\" %r_avg_speed \"[format_speed $r_avgspeed]\" %progress_bar {$pbar} %time {[clock format [clock seconds] -format "%Y-%m-%d %H:%M:%S"]}"																																														 
+	
+
+	if {[vfs chattr $path 9] != 1} {
+		del_old_bars
+		if {!$complete} { 
+			set progbar $ioNJ(progressmeter) 
+		} elseif {[lindex $extrainfo 0] != ""} {
+			set progbar $ioNJ(audio_completebar)
+		} elseif {[lindex $extrainfo2 0] != ""} {
+			set progbar $ioNJ(flac_audio_completebar)
+		} else {
+			set progbar $ioNJ(other_completebar)
+		}
+		set progbar [string map $replacevar $progbar]
+		if {$ioNJ(status_bar_type)} {
+			catch {set progbarfile [open "$path/$progbar" w]} 
+			catch {close $progbarfile}
+			catch {vfs write "$path/$progbar" 0 0 744}
+		} else {
+			catch {file mkdir "$path/$progbar"}
+			catch {vfs write "$path/$progbar" 0 0 744}
+		}
+	}
+	
+
+	set message "$ioNJ(zipscript_header)$ioNJ(zipscript_SFV_ok)"
+
+	if {[lindex $extrainfo 0] != ""} {
+		append message 	"$ioNJ(realtime_mp3_info)"
+	}
+	if {[lindex $extrainfo2 0] != ""} {
+		append message 	"$ioNJ(realtime_flac_info)"
+	}
+	if {$ioNJ(show_user_info)} {
+		append message $ioNJ(realtime_user_header)
+		if {$complete} {
+			foreach {rtop raceuser racegroup racesize racespeed racefiles racepercent dayup wkup mnup allup} [join $totalracers] {
+				append message [string map [list %race_user_position $rtop %race_user_name $raceuser %race_user_group $racegroup %race_user_files $racefiles %race_user_size [format_size $racesize] %race_user_percent $racepercent %race_user_speed [format_speed $racespeed]] $ioNJ(realtime_user_body)]
+			}
+		} else {
+			foreach {rtop raceuser racegroup racesize racespeed racefiles racepercent} [join $totalracers] {
+				append message [string map [list %race_user_position $rtop %race_user_name $raceuser %race_user_group $racegroup %race_user_files $racefiles %race_user_size [format_size $racesize] %race_user_percent $racepercent %race_user_speed [format_speed $racespeed]] $ioNJ(realtime_user_body)]
+			}
+		}
+	}
+
+	if {$ioNJ(show_group_info)} {
+		append message "$ioNJ(realtime_group_header)"
+		foreach {gtop rgroup gracesize gracespeed gracefiles gracepercent} [join $totalgroups] {
+			append message [string map [list %race_group_position $gtop %race_group_name $rgroup %race_group_files $gracefiles %race_group_size [format_size $gracesize] %race_group_percent $gracepercent %race_group_speed [format_speed $gracespeed]] $ioNJ(realtime_group_body)]
+		}
+	}
+	if {$total_files == 0 } {
+		append message $ioNJ(zipscript_footer_unknown)
+	} else {
+		append message "$ioNJ(zipscript_footer_ok)"
+	}
+
+				
+	if {$ioNJ(group_status) && $present_files > $total_files } {
+			catch {vfs read $path} uinfo1
+			lassign $uinfo1 uid1 gid1 mode1
+			set mode1 [string range $mode1 2 5]
+			set gid [resolve group OVERSIZED]
+			catch {vfs write $path $uid $gid $mode1} error
+	}
+
+
+## Change variables in messages
+set message [string map $replacevar $message]
+#
+set exchange [regexp -all -inline {%fm([\-]?)([0-9]+)\{([^\{\}]+)\}} $message]
+foreach {crap 1 2 replacing} $exchange {
+	if {![string is integer -strict $2]} { continue }
+        if {[string length $replacing] > $2} { 
+        	set replace [string range $replacing 0 [expr $2 - 1]] 
+        } else { 
+        	set replace $replacing
+        }
+       
+	set message [string map [list "%fm$1$2\{$replacing\}" [format %${1}${2}s "$replace"]] $message]
+}
+
+	if {$announcestats} { output $message }
+
+
+	if {$release_type == "AUDIO"} {
+		set extra [lrange $extrainfo 1 end]
+	} elseif {$release_type == "FLAC"} {
+		set extra [lrange $extrainfo2 1 end]
+	} elseif {$release_type == "RAR"} {
+		set extra [lrange $extrainfo 1 end]
+	} elseif {$release_type == "VIDEO" && ( $sample != 1 )} {
+		set extra $sample
+	} elseif {$release_type == "ZIP"} {
+		set extra ""
+	} else {
+			set extra ""
+	}
+	
+	if {$complete} {
+		if {$announce != 1} {
+			catch {vfs chattr $path 5 [clock seconds]}
+			catch {vfs chattr $path 9 "1"}
+		}
+		if {$ioNJ(group_status)} {
+			catch {vfs read $path} uinfo1
+			lassign $uinfo1 uid1 gid1 mode1
+			set mode1 [string range $mode1 2 5]
+			set gid [resolve group COMPLETE]
+			catch {vfs write $path $uid $gid $mode1} error
+			if {[regexp -nocase $ioNJ(notparent) [file tail $path]]} {
+				catch {vfs write [file dirname $path] $uid $gid $mode1} error
+			}
+		}
+		if {$ioNJ(group_genre)} {
+			catch {vfs read $path} uinfo1
+			lassign $uinfo1 uid1 gid1 mode1
+			set mode1 [string range $mode1 2 5]
+			if {[lindex $extrainfo2 0] == "0"} {
+				set gid [resolve group [lindex $extrainfo2 7]]
+				if {$gid == "-1"} { set gid 0 }
+				
+			} elseif {[lindex $extrainfo 0] == "0"} {
+				set gid [resolve group [lindex $extrainfo 8]]
+				if {$gid == "-1"} { set gid 0 }
+			}
+			catch {vfs write $path $uid $gid $mode1} error
+			if {[regexp -nocase $ioNJ(notparent) [file tail $path]]} {
+				catch {vfs write [file dirname $path] $uid $gid $mode1} error
+			}
+		}
+	}
+
+
+
+if {$announce} {
+       #update
+	if {[vfs chattr $path 6] != "1" && $present_files == 1 && $total_files >= $ioNJ(min_update_files) && $tempesize >= $ioNJ(min_update_size) } {
+		catch {vfs chattr $path 6 "1"}
+		set newleader [writechattr 8 $user] 
+		put_log "UPDATE_$release_type: [list $pwd $user $ugroup $total_files  $total_speed $esize $fname $dir $tagline $eta] $extra"
+	}
+
+	#halfway announce
+	if {[vfs chattr $path 7] != 1 && [format %.0f [expr $total_files / 2]] == "$present_files" && $total_files >= $ioNJ(min_halfway_files) && $tempesize >= $ioNJ(min_halfway_size)} {
+		catch {vfs chattr $path 7 "1"}
+       		if {$rtop == 1 && $ioNJ(announce_norace)} {
+			put_log "HALFWAY_NORACE_$release_type: [list $pwd $dir $u_winner_name $u_winner_gname $u_winner_mbytes $u_winner_files $u_winner_percent $u_winner_avgspeed $g_winner_name $g_winner_mbytes $g_winner_files $g_winner_percent $g_winner_avgspeed $total_size $total_files $percentdone $a_avgspeed $r_avgspeed $missingfiles $fname $rtop $gtop $user $ugroup $total_files [get_uinfo $user tagline] $eta] $extra"
+		} else {                                   
+ 	  	 	put_log "HALFWAY_RACE_$release_type: [list $pwd $dir $u_winner_name $u_winner_gname $u_winner_mbytes $u_winner_files $u_winner_percent $u_winner_avgspeed $g_winner_name $g_winner_mbytes $g_winner_files $g_winner_percent $g_winner_avgspeed $esize $total_files $percentdone $a_avgspeed $r_avgspeed $missingfiles $fname $rtop $gtop $user $ugroup $total_files [join $groupusers] $eta] $extra"
+		}
+	}
+
+	#newracer
+	if {$newracer && $present_files != 1 && $total_files >= $ioNJ(min_newracer_files) && $tempesize >= $ioNJ(min_newracer_size)} {
+ 	  	put_log "RACE_$release_type: [list $pwd $user $ugroup [join $groupusers] $dir $speed $fname $duration $percentdone $rtop $gtop $present_files $total_files $missingfiles [get_uinfo $user tagline] [join $a_groupusers] $eta] $extra"
+	}
+
+	# NewLeader
+	if {[vfs chattr $path 8] != $u_winner_name && $total_files >= $ioNJ(min_newleader_files) && $tempesize >= $ioNJ(min_newleader_size) && [lindex [lindex $totalracers 1] 5] != ""} {
+		if {[expr $u_winner_files - [lindex [lindex $totalracers 1] 5] ] >= $ioNJ(newleader_files_ahead)} {
+			catch {vfs chattr $path 8 "$u_winner_name"}
+		  	put_log "NEWLEADER_$release_type: [list $pwd $user $ugroup $speed $duration $present_files $percentdone $total_size $dir $fname $rtop $gtop $total_files $missingfiles $u_winner_name $u_winner_gname $u_winner_mbytes $u_winner_files $u_winner_percent $u_winner_avgspeed $g_winner_name $g_winner_mbytes $g_winner_files $g_winner_percent $g_winner_avgspeed [get_uinfo $user tagline] [join $lead_groupusers] $eta] $extra"
+		}
+	}
+
+
+	# Complete
+	if {$complete && [vfs chattr $path 9] != 1} {
+	       catch {vfs chattr $path 5 [clock seconds]}
+	       catch {vfs chattr $path 9 "1"}
+		set totalracers  [lrange $totalracers 0 [expr $ioNJ(max_users_in_top) - 1]]
+ 		set totalgroups [lrange $totalgroups 0 [expr $ioNJ(max_groups_in_top) - 1]]
+		if {$rtop == 1 && $ioNJ(announce_norace)} {			   
+		  	put_log "COMPLETE_$release_type: [list $pwd $dir $total_size $total_files $a_avgspeed $r_avgspeed $duration $user $ugroup $fname [get_uinfo $user tagline] $gtop $g_winner_name $g_winner_mbytes $g_winner_files $g_winner_percent $g_winner_avgspeed $rtop $u_winner_name $u_winner_gname $u_winner_mbytes $u_winner_files $u_winner_percent $u_winner_avgspeed $dayup $wkup $mnup $allup] $extra"
+		} else {
+			put_log "COMPLETE_STAT_RACE_$release_type: [list $pwd $dir $total_size $total_files $a_avgspeed $r_avgspeed $duration $rtop $gtop $u_slowest_name $u_slowest_gname $u_slowest_speed $u_fastest_name $u_fastest_gname $u_fastest_speed $u_winner_name $u_winner_gname $u_winner_mbytes $u_winner_files $u_winner_percent $u_winner_avgspeed $g_winner_name $g_winner_mbytes $g_winner_files $g_winner_percent $g_winner_avgspeed $fname [join $groupusers] [join $totalgroups] [join $totalracers]] $extra"
+		}
+	}
+} elseif {$complete && !$announce} { catch {vfs chattr $path 9 1} }
+
+  if {$complete && [get_files $path "*${ioNJ(missingtag)}"] == ""} {
+	if {[string trim $ioNJ(exec_on_complete)] != ""} {	
+		foreach ex [split [string trim $ioNJ(exec_on_complete)] \n] {
+			set ex1 [lindex $ex 0]
+			set ex2 [lindex $ex 1]
+			if {[regexp -nocase $ex1 $pwd]} {
+				timer 1 [subst $ex2]
+			}
+		}
+	}
+  }
+
+return
+}
+
+#######################
+## ZiP SCRiPT
+#######################
+
+
+proc ::ioNiNJA::ZipScript::ZipScript {type file crc vf} { global args ioNJ uid gid pwd path speed ioerror
+ 
+  set fname  [file tail $file]
+  set pwd    [file dirname $vf]
+  set path   [file dirname $file]
+  if {![file exists $file] || (![file isfile $file])} { return }
+  
+  if {[string index $pwd end] != "/"} { set pwd "${pwd}/" }
+  
+  if {[vfs chattr "$path" 11] == ""} { 
+	catch {vfs chattr "$path" 11 [clock seconds]}
+	catch {vfs chattr "$path" 13 0}
+	catch {vfs chattr "$path" 4 1}
+  }
+  
+   if {$ioNJ(hide_gname_real) != ""} {
+   	lassign [vfs read $file] uid gid mode
+   	catch {vfs write $file $uid $ioNJ(hide_gname_real) $mode}
+   	set gid $ioNJ(hide_gname_real)
+   }
+ 
+  set make_time [readchattr 11]
+  set sfv       [readchattr 10]
+  set sfvfile 	[join [readchattr 35]]
+  set time      [clock seconds]
+  set user      [resolve uid $uid]
+  set tagline   [get_uinfo $user tagline]
+  set ugroup    [resolve gid $gid]
+  set dir       [lindex [file split $pwd] end]
+  set realpath  $file
+  set fsize     [file size $file]
+  set speed     [format %.0f $speed]
+  set dostat    0
+  set newracer  1
+  set newleader 1
+  set announcestats 1
+  set announce 1
+  
+  if {[regexp -nocase $ioNJ(speedtest_dir) $pwd] && $ioNJ(speedtest_dir) != ""} {
+  	if {!$type} {
+  		output "Speedtest: [format_size [expr $fsize/1024.0]] @ [format_speed $speed]"
+ 		put_log "SPEEDTEST: [list $pwd $user $ugroup $tagline $speed [expr $fsize / 1024.0]]"
+    		catch {file delete -force $file}
+    	}
+    	return
+  }
+
+
+ #Hide user and Group in Groupdirs
+ if {[regexp -nocase $ioNJ(group_dirs) "$pwd"] && $ioNJ(group_dirs) != ""} {
+ 	catch {vfs chattr $path 3 1}
+  	if {$ioNJ(hide_group_uploaders)} { 
+		set user $ioNJ(hide_uname)
+		set ugroup $ioNJ(hide_gname)
+	}
+  }
+
+# 0BYTE DEL
+  if {$fsize == 0} {
+	catch {file delete -force $file}
+	if {!$type} {
+		put_log "BAD_FILE_0SIZE: [list $pwd $dir $user $ugroup $fname]"
+		output "$ioNJ(zipscript_header)$ioNJ(zipscript_0byte_del)$ioNJ(zipscript_footer_skip)"
+	}
+	if {$type} { return }
+	set ioerror 1
+	return 1
+  }
+
+
+  set crccheck [string match -nocase "*$fname $crc*" $sfvfile]
+  
+  if {$crccheck} {
+		set dostat 1
+		
+		catch {file delete -force ${file}${ioNJ(missingtag)}}
+	
+		if {[lsearch -glob [vfs chattr "$path" 16] "$uid"] == -1} { 
+			vfs chattr $path 16 "$uid [vfs chattr "$path" 16]" 
+			set newracer 1
+		}
+		
+		if {[regexp -nocase {\.mp3$} "$fname"]} {
+			get_mp3_information $file
+			
+	    } elseif {[regexp -nocase {\.flac$} "$fname"]} {
+			get_flac_information $file
+	    } 
+	        
+	    if {[regexp -nocase {\.nfo$} "$fname"]} {
+			 catch {vfs chattr "$path" 15 $fname}
+	    }
+
+	    if {$ioNJ(mark_file_as_bad)} {
+	       if {[file exists "${file}.bad"]} { 
+				catch {file delete -force "${file}.bad" }
+	       	}
+	    }
+	       	
+	       	
+  } elseif {[regexp -nocase {\.zip$} "$fname"]} {
+  
+		catch {set temp [exec ../scripts/ioNiNJA/MiSC/UNZIP32.exe -t--qq $file]} temp
+		set crccheck [regexp -nocase "no errors" $temp]
+		if {!$crccheck} {
+			catch {file delete -force $file}
+			if {!$type} {
+				put_log "BAD_FILE_CRC: [list $pwd $dir $user $ugroup $fname]"
+				output "$ioNJ(zipscript_header)$ioNJ(zipscript_SFV_fail)$ioNJ(zipscript_footer_skip)"
+				set ioerror 1
+				return 1
+			} 
+			return
+		} else {			
+			if {[vfs chattr "$path" 13] == "0"} { 
+				get_zip_info $file 
+				set total_files [readchattr 13]
+				if {[regexp -nocase $ioNJ(no_diz_required) $pwd]} {
+					vfs chattr "$path" 13 [llength $zip_files] 
+				}
+			}
+			
+			
+			set zip_files [get_files $path *]
+			set nfo_files [lsearch -regexp $zip_files "\.nfo$"]
+			set zip_files [lsearch -regexp -inline $zip_files "\.zip$"]
+			if {$nfo_files == "-1"} {
+				set ban_files [join [split [string trim [readfile ../scripts/ioNiNJA/misc/banned_nfos.txt]] \n] |]
+				catch {set inzip [exec ../scripts/ioNiNJA/MiSC/UNZIP32.exe -qql $file]} inzip
+				foreach {Length Date Time Name} $inzip {
+					if {[regexp -nocase {\.nfo$} $Name]} {
+					if {[regexp -nocase "^($ban_files)\$" $Name]} { continue }
+						symlink_proc nfo 0
+						catch {set temp [exec ../scripts/ioNiNJA/MiSC/UNZIP32.exe  -Cqqp $file $Name > [file join $path $Name]]} temp
+						catch {vfs chattr "$path" 15 $Name}
+						set nfo_name $Name
+						if {$ioNJ(fix_nfo)} { clean_nfo [file join $path $Name] }
+					}
+				}
+			
+			}
+
+			
+			catch {vfs chattr $path 12 "ZIP"}
+			set dostat 1
+			set announce 1
+			if {[lsearch -glob [vfs chattr "$path" 16] "$uid"] == -1} { 
+				catch {vfs chattr "$path" 16 "$uid [vfs chattr "$path" 16]"}
+				set newracer 1
+			}
+			
+		}
+  } elseif  {[regexp -nocase "$ioNJ(skipfiles)" $fname]} {
+  		if {!$type} {
+			output "$ioNJ(zipscript_header)$ioNJ(zipscript_SFV_skip)$ioNJ(zipscript_footer_skip)"
+		}
+		return
+  } elseif {[string match -nocase "sample" $dir]} {
+		if {[vfs chattr "$path" 20] == ""} {
+			if {!$ioNJ(sample_check)} { 
+				return 
+			}
+			getsample $file
+		} 
+	return
+  } elseif {[regexp -nocase {\.nfo$} "$fname"]} {
+  
+  		set ban_files [join [split [string trim [readfile ../scripts/ioNiNJA/misc/banned_nfos.txt]] \n] |]
+		if {[regexp -nocase "^($ban_files)\$" $fname]} { 
+			catch {file delete -force [file join $path $fname]]}
+				output "$ioNJ(zipscript_header)$ioNJ(zipscript_ban_nfo)$ioNJ(zipscript_footer_skip)"
+				set ioerror 1
+				return 1
+		}
+		
+		if {[string trim $ioNJ(exec_on_nfo)] != ""} {
+			set args2 $args
+			set args [list  [lindex $args 1] [lindex $args 2] [lindex $args 3]] 
+			foreach ex [split [string trim $ioNJ(exec_on_nfo)] \n] {
+				set ex1 [lindex $ex 0]
+				set ex2 [lindex $ex 1]
+				if {[regexp -nocase $ex1 $pwd]} {
+					timer 1 [subst $ex2]
+				}
+			}
+			set args $args2
+		}
+		
+		lassign {1 0 0 1 0} dostat newracer newleader announce announcestats
+		
+		if {$ioNJ(fix_nfo)} { clean_nfo $file }
+		
+		catch {vfs chattr "$path" 15 $fname}
+		set nfo_name $fname
+		
+		if {!$type} { 
+			put_log "NFO: [list $pwd $user $ugroup $dir $fname]" 
+			output "$ioNJ(zipscript_header)$ioNJ(zipscript_any_ok)$ioNJ(zipscript_footer_skip)"
+		}
+		
+		symlink_proc nfo 0
+		if {[regexp -nocase {nfofix|nfo.fix} $pwd]} {
+				catch {vfs chattr $path 9 1}
+				set complete_on_nfo 1
+		}
+		foreach subbdir [get_dirs $path *] {
+			if {[regexp -nocase $ioNJ(notparent_sfv_in_root) [file tail $subbdir]]} {
+				set complete_on_nfo  1
+				break
+			}
+		}
+		if {[info exists complete_on_nfo]} {
+			if {$ioNJ(group_status)} {
+				catch {vfs read $path} uinfo1
+				lassign $uinfo1 uid1 gid1 mode1
+				set mode1 [string range $mode1 2 5]
+				set gid [resolve group COMPLETE]		
+				catch {vfs write $path $uid $gid 777} error
+			}
+		}
+		
+		set dostat 1
+		set announce 1
+				
+  } elseif {[regexp -nocase {\.sfv$} "$fname"]} {
+  
+		if {[llength [get_files $path "*.sfv"]] != 1} {
+			  if {$ioNJ(deny_double_sfv)} {
+				catch {file delete -force $file}
+				if {!$type} {
+					output "$ioNJ(zipscript_header)$ioNJ(zipscript_dual_sfv)$ioNJ(zipscript_footer_skip)"
+					put_log "DOUBLESFV: [list $pwd $user $ugroup $dir $fname]"
+				}				
+			  } 
+			return
+		}
+		
+		sfv_check $file
+		catch {vfs chattr "$path" 10  $fname}
+		set sfvfile [join [readchattr 35]]
+		set total_files [readchattr 13]
+		symlink_proc sfv 0
+		set dostat 0
+		set announce 0
+		
+		set checkfiles [readchattr 50]
+		
+		foreach f_stat $checkfiles {
+			lassign $f_stat fn crc2
+			set crccheck [string match -nocase "*$fn $crc2*" $sfvfile]
+			if {$crccheck} {
+				catch {file delete -force [file join $path ${fn}${ioNJ(missingtag)}]} error
+				set dostat 1
+				set announce 0
+				set type 1
+			} else {
+				if {$ioNJ(mark_file_as_bad)} {
+					catch {file rename -force [file join $path $fn] "$fn.bad"}
+				} else {
+					catch {file delete -force -- [file join $path $fn]}
+				}
+			}
+		}
+		
+		if {$checkfiles == ""} {
+			foreach {fn crc} $sfvfile {
+				if {[file exists [file join $path $fn]]} {
+					set crc2 [format %08X [crc32 [file join $path $fn]]]
+					set crccheck [string match -nocase "*$fn $crc2*" $sfvfile]
+					if {$crccheck} {
+						catch {file delete -force [file join $path ${fn}${ioNJ(missingtag)}]} error
+						set dostat 1
+						set announce 0
+						set type 1
+					} else {
+						if {$ioNJ(mark_file_as_bad)} {
+							catch {file rename -force [file join $path $fn] "$fn.bad"}
+						} else {
+							catch {file delete -force -- [file join $path $fn]}
+						}
+					}
+				}
+			}
+		}
+		
+		catch {vfs chattr $path 50 ""}
+		
+		if {!$type || [vfs chattr $path 9] == 1} {
+			put_log "SFV_[vfs chattr $path 12]: [list $pwd $dir [vfs chattr $path 13] $user $ugroup [get_uinfo $user tagline]] $fname" 
+	  	 	output "$ioNJ(zipscript_header)$ioNJ(zipscript_sfv_ok)$ioNJ(zipscript_footer_skip)"
+			return
+		}
+		
+  } elseif {$sfv == ""} {
+  		
+		set temp_nr 0
+		while {[lsearch -glob [readchattr 50] "[list $fname] *"] == "-1" && $temp_nr < 100} {
+			writechattr 50 "[readchattr 50] \{[list $fname $crc]\}"
+			if {$temp_nr != 0} { after 50 }
+			incr temp_nr
+		}
+		
+		set message "$ioNJ(zipscript_header)$ioNJ(zipscript_sfv_no)$ioNJ(zipscript_footer_skip)"
+		output $message
+		
+		catch {vfs chattr 8 $user}
+
+  		if {![regexp -nocase -- $ioNJ(nosym_sfv_dirs) $pwd]} {
+  			set temp [symlink_proc sfv 1]
+  		}
+		catch {vfs chattr 8 $user}
+		if {[lsearch -glob [vfs chattr "$path" 16] "$uid"] == -1} { vfs chattr "$path" 16 "$uid [vfs chattr "$path" 16]"}
+
+		if {[regexp -nocase {\.mp3$} "$fname"]} {
+			get_mp3_information "$file"
+	    } 
+	    set announce 0
+	    set dostat 0
+		return
+	        
+  } else {
+  		
+  		if {!$type} {
+			output "$ioNJ(zipscript_header)$ioNJ(zipscript_SFV_fail)$ioNJ(zipscript_footer_skip)"
+			put_log "BAD_FILE_CRC: [list $pwd $dir $user $ugroup $fname]"
+		}
+		if {$ioNJ(mark_file_as_bad)} {
+			if {[file exists "${file}.bad"]} { 
+			     catch {file delete -force "${file}.bad" }
+	       		}
+			catch {file rename -force $file "$file.bad"}
+		} else {
+			catch {file delete -force $file}
+		}
+		
+		if {$type} { return }  
+		set ioerror 1
+		return 1
+		
+  }
+
+
+	if {[regexp -nocase $ioNJ(samples) $fname] && ![regexp -nocase "/sample" $pwd]} {
+		getsample $file
+	} 
+ 
+	if {$type && $dostat} { outstats 0 0 0 0 $file } elseif {$dostat} { outstats $newracer $newleader $announce $announcestats $file }
+ 
+
+  return
+}
+
+
+
+#######################
+## Post Del
+#######################
+
+
+proc ::ioNiNJA::ZipScript::postdel {} {global args uid gid path pwd ioNJ set ioerror
+  set user [resolve uid $uid]
+  set group [resolve gid $gid]
+  set sfv [readchattr 10]
+  set sfvdata [readchattr 35]
+  set complete [readchattr 9]
+  set dir [file tail $pwd]
+  set fname [file tail [lrange $args 1 end]]
+  set filedata [readchattr 50]
+
+  
+  # SFV DELETE
+  if {$fname == $sfv} {
+	del_old_bars
+	foreach mfile [get_files $path "*${ioNJ(missingtag)}"] { catch {file delete -force "$mfile"} }
+	writechattr 10 "" ; writechattr 13 "0" ; writechattr 35 "" ; vfs chattr $path 9 0
+	symlink_proc sfv 1
+    return
+  } 
+
+  if {[string match -nocase "sample" $dir]} {
+		vfs chattr [file dirname $path] 20 ""
+		catch {file delete -force -- [file join $path .ioFTPD.message]}
+		symlink_proc sample 1
+		return
+  }
+
+
+  if {[string match -nocase "*.nfo" $fname]} {
+		writechattr 30 "" 
+		vfs chattr $path 9 0 
+		writechattr 15 ""
+		symlink_proc nfo 1
+  }
+  
+
+   if {[string match -nocase "*$fname *" $sfvdata] && ![regexp -nocase {\.zip$} $fname]} {
+		if {$sfv != ""} { symlink_proc cd 1 }
+        set missfile [open [file join $path $fname${ioNJ(missingtag)}] w] ; close $missfile
+   }
+	
+	del_old_bars
+	
+    if {$complete == 1} {
+		put_log "INCOMPLETE: [list $pwd $user $group $dir]"
+		catch {vfs chattr $path 9 ""}
+	}
+
+	if {[string match -nocase "*$fname *" $sfvdata] || [regexp -nocase {\.zip$} $fname ]} {
+		 outstats 0 0 0 1 [lrange $args 1 end]
+	}
+	
+	return
+}
+
+proc ::ioNiNJA::ZipScript::PRE_RMD {rel} { global args path pwd uid
+
+	set pwd [file join $pwd [lindex $args 2]] 
+	set path [file join $path [lindex $args 2]]
+
+
+	if {![file exists $path]} {
+		foreach m_path [join [get_mountpoints]] {
+			if {[file exists $m_path]} {
+				set path $m_path
+				break
+			}
+		}
+		
+	}
+
+	foreach file [glob -nocomplain -types hidden -dir "$path" *] {
+		if {![regexp -nocase {\.ioFTPD$} $file]} {
+			catch {file attribute "$file" -hidden 0} 
+			catch {file delete -force -- $file} error
+		}
+	}
+	
+	
+}
+
+
+proc ::ioNiNJA::ZipScript::POST_RMD {rel} { global args path pwd
+
+	set pwd [file join $pwd [lindex $args 2]] 
+	set path [file join $path [lindex $args 2]] 
+	::ioNiNJA::symlink_proc sfv 0 
+	::ioNiNJA::symlink_proc nfo 0 
+	::ioNiNJA::symlink_proc sample 0 
+	::ioNiNJA::symlink_proc cd 0
+	
+}
+
+proc ::ioNiNJA::ZipScript::PRE_MKD {rel} { global args path pwd uid gid ioNJ ioerror
+
+	set pwd [file join $pwd [lindex $args 2]] 
+	set path [resolve pwd $pwd]
+	
+	
+	if {[regexp -nocase $ioNJ(pd_skip_sections) $pwd] && $ioNJ(pd_skip_sections) != ""} {
+		return
+	}
+
+	if {$ioNJ(use_subdir_ban) && [regexp -nocase $ioNJ(notparent) [lindex [file split [file dirname $pwd]] end] ]} {
+		set ioerror 2
+		set message "550- $ioNJ(zipscript_header)550- $ioNJ(zipscript_subdir_ban)550 $ioNJ(zipscript_footer_skip)"
+		output2 $message
+		return
+	}
+
+	if {$ioNJ(use_subdir_ban) && [regexp -nocase $ioNJ(notparent_sfv_in_root) [file tail $pwd]] || ![regexp -nocase $ioNJ(allowed_subdirs) [file tail $pwd]]} {
+		if {[vfs chattr [file dirname $path] 35] != ""} {
+			set ioerror 2
+			set message "550- $ioNJ(zipscript_header)550- $ioNJ(zipscript_subdir_sfv_root)550 $ioNJ(zipscript_footer_skip)"
+			output2 $message
+			return
+		}
+	}
+	
+	
+	if {$ioNJ(banned_allowed_dirs) != ""} {
+		foreach line [split [string trim $ioNJ(banned_allowed_dirs)] \n] {
+	 		lassign $line bantype bansection banregexp
+			if {[regexp -nocase $bansection $pwd]} {
+				if {![regexp -nocase $banregexp $pwd] && $bantype} {
+					  set ioerror 2
+					  set message "550- $ioNJ(zipscript_header)550- $ioNJ(zipscript_dir_ban)550 $ioNJ(zipscript_footer_skip)"
+					  output2 $message
+					  return
+				} elseif {[regexp -nocase $banregexp $pwd] && !$bantype} {
+				  	 set ioerror 2
+					 set message "550- $ioNJ(zipscript_header)550- $ioNJ(zipscript_dir_not_allowed)550 $ioNJ(zipscript_footer_skip)"
+					 output2 $message
+					 return			
+				}
+			}
+		}
+	}
+
+
+	
+}
+
+
+proc ::ioNiNJA::ZipScript::POST_MKD {rel} { global args path pwd uid gid ioNJ ioerror
+	if {![regexp -nocase "/" [lindex $args 2]]} {
+		set path [file join $path [lindex $args 2]]
+	} else {
+		set path [resolve pwd [lindex $args 2]]
+	}
+	catch {vfs chattr "$path" 3 1}
+	catch {vfs chattr "$path" 11 [clock seconds]}
+	catch {vfs chattr "$path" 13 0}
+	catch {vfs chattr "$path" 4 1}
+	
+	if {$ioNJ(hide_gname_real) != ""} {
+	if {[catch {set info [vfs read $path]} err]} {
+    putlog "ZipScript::POST_MKD: unable to read '$path' ($err)"
+    return
+	}
+	putlog "POST_MKD path='$path'"
+	lassign $info uid gid mode
+	
+		set mode [string range $mode end-3 end]
+		catch {vfs write $path $uid $ioNJ(hide_gname_real) $mode}
+   }
+   	if {$ioNJ(group_status)} { 
+	if {[catch {set info [vfs read $path]} err]} {
+    putlog "ZipScript::POST_MKD: unable to read '$path' ($err)"
+    return
+	}
+	putlog "POST_MKD path='$path'"
+	lassign $info uid gid mode
+	
+		set gid [resolve group EMPTY]
+		set mode [string range $mode end-3 end]
+		catch {vfs write $path $uid $gid $mode}
+	}
+   return
+}
+
+proc ::ioNiNJA::ZipScript::PRE_STOR {rel} { global args path pwd uid gid ioNJ ioerror user group
+
+	# ioFTPD exposes an unquoted STOR name as the remaining event arguments.
+	# Join those words back with spaces; passing the lrange list directly to
+	# file join leaks Tcl's list braces into names containing special tokens.
+	set uploadName [join [lrange $args 2 end] " "]
+	set pwd [file join $pwd $uploadName]
+	set flags [get_uinfo $user flags]
+	set complete [readchattr 9]
+	
+	
+	if {$ioNJ(complete_lock) == 1 && $complete == 1 && ![regexp -nocase $ioNJ(pd_skip_sections) $pwd]} {
+		if  {![regexp $ioNJ(lock_ignore_flags) $flags] ||  $ioNJ(lock_ignore_flags) == "" } {
+			set ioerror 2
+			set message "550- $ioNJ(zipscript_header)\n550- $ioNJ(zipscript_complete_lock)\n550 $ioNJ(zipscript_footer_skip)"
+			output2 $message
+			return 1
+		}
+    }
+
+
+	if {[file exists [file join $path $uploadName]] && $ioNJ(xdupe)} {
+			set xdupelist [get_files $path *]
+				set ioerror 2
+				foreach xfile $xdupelist {
+				  	iputs "553- X-DUPE: [file tail $xfile]"
+				}
+	                set temp [vfs read [file join $path $uploadName]]
+	                set up_user [resolve uid [lindex $temp 0]]
+	                set time [expr [clock seconds ] - [file mtime [file join $path [lindex $args 2]]]]
+	                if {$time == "" || $time == 0} { set time 1 }
+	                iputs "553- [lindex [file split $pwd] end]: This file looks like a dupe!! $time"
+					iputs "553  It was uploaded by $up_user ([duration $time] ago)"
+					set ioerror 2
+					return 1
+	}
+	
+	if {$ioNJ(samples) != "" && [regexp -nocase "/sample/" $pwd]} {
+		if {![regexp -nocase $ioNJ(samples) $pwd]} {
+			set ioerror 2
+			set message "553- $ioNJ(zipscript_header)553- $ioNJ(zipscript_sample_no_media)553 $ioNJ(zipscript_footer_skip)"
+			output2 $message
+		}  elseif {[vfs chattr [file dirname $path] 20] != ""} {
+			set ioerror 2
+			set message "553- $ioNJ(zipscript_header)553- $ioNJ(zipscript_sample_dual)553 $ioNJ(zipscript_footer_skip)"
+			output2 $message
+		}
+		return 1
+	}
+	
+	if {$ioNJ(deny_double_sfv) && [regexp -nocase {\.sfv$} $pwd]} {
+		set sfv [llength [get_files $path "*.sfv"]]
+		if {$sfv != 0} {
+			set ioerror 2
+			set message "553- $ioNJ(zipscript_header)553- $ioNJ(zipscript_dual_sfv)553 $ioNJ(zipscript_footer_skip)"
+			output2 $message
+			return 1
+		}
+	}
+	
+	if {$ioNJ(deny_double_nfo) && [regexp -nocase {\.nfo$} $pwd]}  {
+		set nfo [llength [get_files $path "*.nfo"]]
+		if {$nfo != 0} {
+			set ioerror 2
+			set message "553- $ioNJ(zipscript_header)553- $ioNJ(zipscript_dual_nfo)553 $ioNJ(zipscript_footer_skip)"
+			output2 $message
+			return 1
+		}
+	
+	}
+
+	if {$ioNJ(force_sfv_first) != 0 && ![regexp -nocase {\.sfv$|\.nfo$} [file tail $pwd]] && [readchattr 10] == "" && ![regexp -nocase $ioNJ(noforce_sfv_dirs) $pwd]} {
+			set ioerror 2
+			set message "553- $ioNJ(zipscript_header)553- $ioNJ(zipscript_no_sfv)553 $ioNJ(zipscript_footer_skip)"
+			output2 $message
+			return 1
+	} 
+	
+	
+	if {$ioNJ(pf_verify_file_with_sfv) && [readchattr 10] != "" && ![regexp -nocase {\.sfv$|\.nfo$} [file tail $pwd]] && ![regexp -nocase {\.diz} [readchattr 10]]} {
+		if {![string match -nocase "*[file tail $pwd]*" [readchattr 35]] && ![regexp -nocase $ioNJ(skipfiles) $pwd]} {
+			set ioerror 2
+			set message "550- $ioNJ(zipscript_header)550- $ioNJ(zipscript_not_in_SFV)550 $ioNJ(zipscript_footer_skip)"
+			output2 $message
+			return 1
+		}
+	
+	}
+	
+	
+	if {[regexp -nocase "\.zip$" $pwd] && $ioNJ(zip_fname_check)} {
+		set new_zip [lindex [file split $pwd] end]
+		set zip_files [get_files [resolve vfs $pwd] *.zip]
+		if {[llength $zip_files] != 1 && $zip_files != ""} { 
+			set zip_file [lindex [file split [lindex $zip_files 0]] end]
+			if {$zip_file == $new_zip } { set zip_file [lindex [file split [lindex $zip_files 1]] end] }
+			set zip_letters [expr $ioNJ(zip_fname_check_letters) - 1]
+			if {[string range $zip_file 0 $zip_letters] != [string range $new_zip 0 $zip_letters]} {
+				set ioerror 2
+				set message "550- $ioNJ(zipscript_header)550- $ioNJ(zipscript_zip_verify)550 $ioNJ(zipscript_footer_skip)"
+				output2 $message
+				return 1
+			}
+		}
+	}
+	
+	
+		
+	
+	if {$ioNJ(banned_allowed_files) != ""} {
+		foreach line [split [string trim $ioNJ(banned_allowed_files)] \n] {
+	 		lassign $line bantype bansection banregexp
+			if {[regexp -nocase $bansection $pwd]} {
+				if {![regexp -nocase $banregexp $pwd] && $bantype} {
+					  set ioerror 2
+					  set message "550- $ioNJ(zipscript_header)550- $ioNJ(zipscript_file_not_allowed)550 $ioNJ(zipscript_footer_skip)"
+					  output2 $message
+					  return 1
+				} elseif {[regexp -nocase $banregexp $pwd] && !$bantype} {
+				  	 set ioerror 2
+					 set message "550- $ioNJ(zipscript_header)550- $ioNJ(zipscript_file_ban)550 $ioNJ(zipscript_footer_skip)"
+					 output2 $message
+					 return 1
+				
+				}
+			}
+		}
+	}
+}
+
+proc ::ioNiNJA::ZipScript::PRE_DELE {rel} { global args path pwd uid gid ioNJ ioerror
+	set pwd [file join $pwd [lindex $args 2]] 
+	set user [resolve uid $uid]
+	set group [resolve gid $gid]
+    set complete [readchattr 9]
+    set dir [file tail [file split $pwd]]
+    set flags [get_uinfo $user flags]
+    if {$ioNJ(complete_lock) == 1 && $complete == 1 && ![regexp -nocase $ioNJ(pd_skip_sections) $pwd]} {
+		if  {![regexp $ioNJ(lock_ignore_flags) $flags] ||  $ioNJ(lock_ignore_flags) == "" } {
+			set ioerror 2
+			set message "550- $ioNJ(zipscript_header)\n550- $ioNJ(zipscript_complete_lock)\n550 $ioNJ(zipscript_footer_skip)"
+			output2 $message
+			return 1
+		}
+    }
+}
+
+proc ::ioNiNJA::ZipScript::XDUPE {type} { global args path pwd ioNJ ioerror
+		iputs "250 Extended dupe mode 3 is enabled."
+		return 
+}
+
+
+switch -- [lindex $args 0] {
+	SYMCLEAN  { ::ioNiNJA::symlink_clean }
+	RESCAN    { source "../scripts/ioNiNJA/MiSC/NiNJALiB.tcl" ; ::ioNiNJA::rescan }
+	RESORT    { source "../scripts/ioNiNJA/plugins/flac.itcl" ; source "../scripts/ioNiNJA/plugins/mp3.itcl" ; source "../scripts/ioNiNJA/plugins/ioTV.itcl" ; source "../scripts/ioNiNJA/plugins/xxx.itcl" ; source "../scripts/ioNiNJA/plugins/music_video.itcl" ; ::ioNiNJA::resort }
+	DELE      { ::ioNiNJA::ZipScript::postdel } 
+	INVITE    { ::ioNiNJA::INVITE }
+	IRC       { ::ioNiNJA::IRC }
+	VERSION   { ::ioNiNJA::NJVER }
+	ADDGENRES { ::ioNiNJA::ADDGENRES }
+	ADDGRPSTA { ::ioNiNJA::ADDGROUPSTATUS }
+	CWD       { ::ioNiNJA::CWD } 
+	MAKESFV   { ::ioNiNJA::MAKESFV } 
+	CHECK     { ::ioNiNJA::ZipScript::ZipScript 0 [lindex $args 1] [lindex $args 2] [lindex $args 3] }
+	POSTRMD   { ::ioNiNJA::ZipScript::POST_RMD [lindex $args 2] }
+	PRERMD    { ::ioNiNJA::ZipScript::PRE_RMD [lindex $args 2] }
+	POSTMKD    { ::ioNiNJA::ZipScript::POST_MKD [lindex $args 2] }
+	PREMKD    { ::ioNiNJA::ZipScript::PRE_MKD [lindex $args 2] }
+	XDUPE     { ::ioNiNJA::ZipScript::XDUPE   [lindex $args 1] }
+	PRESTOR   { ::ioNiNJA::ZipScript::PRE_STOR [lindex $args 2] }
+	PREDELE   { ::ioNiNJA::ZipScript::PRE_DELE [lindex $args 2] }
+}
+

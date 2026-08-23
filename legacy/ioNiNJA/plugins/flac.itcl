@@ -1,0 +1,151 @@
+namespace eval ::ioNiNJA::FLAC {
+    namespace import -force ::ioNiNJA::*
+}
+
+source [file join [file dirname [info script]] flac.cfg]
+
+proc ::ioNiNJA::FLAC::Main {} {global ioNJ args path pwd
+
+	iputs -nobuffer "Sorting: $path"
+	
+	if {$ioNJ(flac_audio_sorting) == ""} { return }
+   
+   	set tempartists ""
+
+	set flacfiles [get_files $path *.flac]
+
+	if {$flacfiles == ""} { return }
+	
+	if {$ioNJ(flac_fast_sorting)} { set flacfiles = [lindex $flacfiles 0] }
+	
+	iputs -nobuffer "Sorting [file tail $path]"
+	
+	
+   	foreach flacfile $flacfiles {
+   		get_flac_information $flacfile
+		set mp3 [readchattr 26]
+		lassign $mp3 crap duration bitrate album year artist producer genre description recorddate writeapp ripdate retail media channels srate bitdepth language catalog riptool trackname type
+   		if {[set lrep [lsearch -glob $tempartists "$artist *"]] != "-1"} {
+		   	set tempartists [lreplace $tempartists $lrep $lrep "$artist [expr [lindex [lindex $tempartists $lrep] end] +1]"]
+		} else {
+		   	lappend tempartists "$artist 1"
+   		}
+   	}
+  
+   	set artist [lrange [lindex [lsort -decreasing -integer -index end "$tempartists"] 0] 0 end-1]
+
+  	set dir [lindex [file split $path] end]
+  	
+	if {[regexp -nocase  $ioNJ(notparent) $dir]} { 
+		set subdir 1
+		set dir [lindex [file split $path] end-1] 
+	}
+	
+	set releasegroup [get_grpname $dir]
+   
+   	regsub -all {_|\-} $album { } album
+	if {[regexp -nocase {(\(.*)} $album -> temp]} {
+	 	if {[regexp -nocase {(proper|promo|repack|cd|reissue|disc|fixed|disk|release|digipak|uk|japan|remastered|explicit|real|dirty|selection|retail|edition|ltd|limited edition|advance|sampler|cds|cdm|ep|vls|12inch|read|web|trackfix|bonus)} [regsub -all {_|\.|\-} $temp { }]]} {
+	 		regexp -nocase {(.+?)\(.+?} $album -> album
+	 	}
+	}
+		 			 	
+	regsub -nocase -lineanchor {\-$} [string trim $album] {} album
+	regsub -nocase -lineanchor {(CD [0-9]+|CD[0-9]|[0-9]CD|promo|CDA|ltd|reissue|fixed|re release|fan edition|special edition|delux edition|limited|release|proper|repack|retail|explicit|selection|clean|dirty|remastered|advance|sampler|cds|cdm|ep|vls|12inch|read nfo|readnfo|read nfo)$} [string trim $album] {} album
+	set album [string trim $album]
+	set temp_alb ""
+	foreach word $album {
+		if {[regexp -nocase -lineanchor {^(CD|CD[0-9]|[0-9]CD|ltd|reissue|repack|retail|explicit|remastered|sampler|cds|cdm|ep|vls|12inch|read nfo|readnfo|read nfo)$} $word]} { continue }
+		lappend temp_alb $word 
+	}
+		 			 
+	set album [join $temp_alb]
+	regsub -nocase -lineanchor {\-$} [string trim $album] {} album
+	if {[regexp -nocase {^(va|v\.a|various\_artists)(\_|\-)} $dir]} { set artist "VA" }
+        if {[regexp -nocase {(^ost|^o\.s\.t|\-soundtrack|\-ost|\_ost)(\_|\-)} $dir]} { set artist "OST" }
+	set artist [string trim $artist]
+	
+	if {![regexp -nocase {^(ost|va)$} $artist]} {
+		set artist_idx [audioscrobbler_artist $artist]
+		set apic ""	
+		if {$artist_idx != "" && [lindex $artist_idx 1] != ""} {
+			set artist [lindex $artist_idx 1]
+			set apic [lindex $artist_idx 2]
+		}
+	}
+	
+	regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} $artist {} artist
+	
+	if {$ioNJ(flac_strip_the)} {
+		regsub -nocase -all {^the } $artist {} artist
+	}
+	
+	if {$ioNJ(flac_get_cover_enabled)} {
+		set cover [Music_Cover $artist $album $year $genre]
+	}
+	
+	if {$ioNJ(flac_fanart_enabled)} {
+		backdrop $artist
+	}
+
+    set decade [string replace $year end end 0]
+    set artist_first [string toupper [string index [lindex $artist 0] 0]]
+	
+	if {![regexp -nocase {[A-Za-z|å|Å|ä|Ä|Ö|ö]} [lindex $artist_first 0]]} { set artist_first "#" }
+
+        if {$ioNJ(flac_artist_pic) != "" && ![regexp -nocase {^(ost|va)$} $artist] } {
+       		           if {$apic != ""} {
+                               set afile [file join [file dirname [info script]] $artist.jpg]
+                               foreach line [split [string trim $ioNJ(flac_artist_pic)] \n] {
+                                        set line [string map [regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} [list %artist_first $artist_first %artist $artist %album $album %decade $decade %genre $genre %year $year %ripdate $ripdate %recorddate $recorddate %retail $retail %type $type %language %media $media $language %group $releasegroup %release $dir] {}] $line]
+                                        catch {file mkdir $line}
+                                        if {[file exists "[file dirname [info script]]/Music/fanart/$artist/"]} {
+                                        	if { ![file exists  [file join $line fanart.jpg]] } {
+                                        		set fanart2 [lindex [get_files "[file dirname [info script]]/Music/fanart/$artist/" *] 0]
+                                         		catch {file copy $fanart2 [file join $line fanart.jpg]}
+                                     		}
+                            		}
+					if {![file exists [file join $line folder.jpg]]} {
+                           			catch {file copy $apic  [file join $line folder.jpg]}
+                    			}
+				}
+        		}
+         }
+
+	if {$ioNJ(flac_special_sorting) != "" && $ioNJ(flac_special_sorting_theme) != ""} {
+		set tempspecial ""
+		foreach string [lrange [split $dir -] 2 end] {
+	         	if {[regexp -nocase $ioNJ(flac_special_sorting) [set string [regsub -all {\(|\)} [regsub -all {\.|_} $string { }] {}]]]} {
+		        	lappend tempspecial $string
+	          	}
+	       }
+	       if {$tempspecial != ""} {
+	        	set special_info  [string map [list %special [string trim [join $tempspecial " - "]]] $ioNJ(flac_special_sorting_theme)]
+				set album "${album}$special_info"
+		}
+	}
+		 		       
+	 
+	 
+	foreach dirmap [split [string trim $ioNJ(flac_audio_sorting)] \n] {
+		set pwd_match [lindex $dirmap 0]
+		set dirmap   [lindex $dirmap 1]
+		if {![regexp -nocase $pwd_match $pwd]} { continue }	
+		set dirmap [string map [regsub -all {/|\\|:|\*|\?|\"|\<|\>|\|} [list %artist_first $artist_first %artist $artist %album $album %decade $decade %genre $genre %year $year %ripdate $ripdate %recorddate $recorddate %retail $retail %type $type %language %media $media $language %group $releasegroup %release $dir] {}] $dirmap]
+		if {[info exists subdir]} { set linkto [file dirname $path] } else { set linkto $path }
+		sorting $ioNJ(flac_sym_type) $linkto $dirmap $pwd
+	}
+	    
+}
+
+
+
+if {![info exists pwd]} {
+	set pwd  "[file dirname [lindex $args 2]]"
+	set path "[file dirname [lindex $args 0]]"
+	::ioNiNJA::FLAC::Main
+}
+
+
+
+

@@ -1,0 +1,163 @@
+set ioNJ(message_header_plain)       ".-----------------====------------------------== ioNiNJA %ioNiNJA_VER ===--.\n|                                                                    |\n"
+set ioNJ(message_header)             ".-----------------====------------------------== ioNiNJA %ioNiNJA_VER ===--.\n|                                                                    |\n|-=\[ R A C E N F O \]=---------------.                                |\n|                                    `-----------------====----------|\n| Release: %fm-57{%release} |\n| RaceNfo: %fm-57{%total_size in %total_filesF @ %average_speed in %race_duration} |\n| Fastest: %fm-57{%u_fastest_name/%u_fastest_gname @ %u_fastest_speed} |\n| Slowest: %fm-57{%u_slowest_name/%u_slowest_gname @ %u_slowest_speed} |\n|                                                                    |\n"
+set ioNJ(message_user_header)        "|-=\[ U S E R T O P \]=---------------.                                |\n|                                    `-----------------====----------|\n"
+set ioNJ(message_user_body)          "| %fm3{%race_user_position.} %fm-29{%race_user_name} %fm-9{%race_user_size} %fm-4{%race_user_filesF}   %fm-4{%race_user_percent%} %fm10{%race_user_speed} |\n"
+set ioNJ(message_user_footer)        "|- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - |\n| %fm3{%rtop.} %fm-29{Total} %fm-9{%total_size} %fm-4{%total_filesF}   100% %fm10{%average_speed} |\n"
+set ioNJ(message_group_header)       "|                                                                    |\n|-=\[ G R O U P T O P \]=-------------.                                |\n|                                    `--------------===--------------|\n"
+set ioNJ(message_group_body)         "| %fm3{%race_group_position.} %fm-29{%race_group_name} %fm-9{%race_group_size} %fm-4{%race_group_filesF}   %fm-4{%race_group_percent%} %fm10{%race_group_speed} |\n"
+set ioNJ(message_group_footer)       "|- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - |\n| %fm3{%gtop.} %fm-29{Total} %fm-9{%total_size} %fm-4{%total_filesF}   100% %fm10{%average_speed} |\n"
+set ioNJ(message_mp3)                "|                                                                    |\n|-=\[ I D 3 - T A G \]=---------------.                                |\n|                                    `-----==-------------===--------|\n| Artist : %fm-57{%audio_artist} |\n| Album  : %fm-57{%audio_album} |\n| Genre  : %fm-34{%audio_genre} Rate  : %fm3{%audio_bitrate}kbit/s      |\n| Tracks : %fm-34{%total_files} Year  : %fm-14{%audio_year} |\n| Encoder: %fm-34{%audio_lame_version} Preset: %fm-15{%audio_lame_preset & %audio_vbr_old_or_new}|\n"
+set ioNJ(message_flac)               "|                                                                    |\n|-=\[ FLAC - T A G \]=----------------.                                |\n|                                    `-----==-------------===--------|\n| Artist : %fm-57{%audio_artist} |\n| Album  : %fm-57{%audio_album} |\n| Genre  : %fm-34{%audio_genre} Rate  : %fm3{%audio_bitrate}kbit/s      |\n| Tracks : %fm-34{%total_files} Year  : %fm-14{%audio_year} |\n| RipDate: %fm-34{%audio_ripdate} Retail: %fm-14{%audio_retail} |\n| RecDate: %fm-34{%audio_recorddate} Lang  : %fm-14{%audio_language} |\n| Media  : %fm-34{%audio_media} Type  : %fm-14{%audio_type} |\n| Prod   : %fm-34{%audio_producer} CAT   : %fm-14{%audio_catalog} |\n| RipTool: %fm-34{%audio_riptool} WriApp: %fm-14{%audio_writeapp} |\n"
+set ioNJ(message_imdbinfo)           "|                                                                    |\n|-=\[ I M D B N F O \]=---------------.                                |\n|                                    `-----==-------------===--------|\n| Title    : %fm-55{%imdb_title (%imdb_year)} |\n| Genre    : %fm-55{%imdb_genre} |\n| Rating   : %fm-55{%imdb_rating with %imdb_votes votes} |\n| Director : %fm-55{%imdb_director} |\n| Tagline  : %fm-55{%imdb_tagline} |\n| Country  : %fm-55{%imdb_country} |\n| Language : %fm-55{%imdb_language} |\n| Runtime  : %fm-55{%imdb_runtime} |\n| Screens  : %fm-55{%imdb_screens and is %imdb_limited} |\n| Type     : %fm-55{%imdb_limited} |\n| Company  : %fm-55{%imdb_company} |\n| Url      : %fm-55{%imdb_url} |\n"
+set ioNJ(message_tvinfo)             "|                                                                    |\n|-=\[ TheTVDB - T V - N F O \]=-------.                                |\n|                                    `-----==-------------===--------|\n| Show     : %fm-55{%tv_showname  (%tv_show_premiere)} |\n| EpTitle  : %fm-55{%tv_epname - (%tv_seasonx%tv_episodenr)} |\n| EpAirDate: %fm-55{%tv_epfirstaired} |\n| EpRating : %fm-55{%tv_eprating/10} |\n| EPDirect : %fm-55{%tv_epdirector} |\n| EpWriter : %fm-55{%tv_epwriter} |\n| EpPlot   : %fm-55{%tv_epplot} |\n| ShowScore: %fm-55{%tv_show_rating/10} |\n| Genre    : %fm-55{%tv_show_genre} |\n| AirDay   : %fm-55{%tv_show_airday: %tv_show_airtime @ %tv_show_network} |\n| Runtime  : %fm-55{%tv_show_runtime} |\n| Overview : %fm-55{%tv_show_overview} |\n| Status   : %fm-55{%tv_show_status} |\n| Url      : %fm-55{%tv_show_url} |\n"
+set ioNJ(message_sample)             "|                                                                    |\n|-=\[ S A M P L E \]=-----------------.                                |\n|                                    `-----==-------------===--------|\n| Type   : %fm-57{%video_codec} |\n| Bitrate: %fm-57{%video_bitrate} |\n| AR     : %fm-57{%video_aspect_ratio @ %video_widthx%video_height} |\n| FPS    : %fm-57{%video_framerate} |\n| Audio  : %fm-30{%video_audio_codec} AudioBR: %fm-17{%video_audio_bitrate} |\n| Mode   : %fm-30{%video_audio_bitrate_mode} Chans  : %fm-17{%video_audio_chans} |\n| Rate   : %fm-30{%video_audio_samplerate} Res    : %fm-17{%video_audio_resolution} |\n"
+set ioNJ(message_mv)                 "|                                                                    |\n|-=\[ M V I N F O \]=-----------------.                                |\n|                                    `-----==-------------===--------|\n| Artist : %fm-57{%mv_artist} |\n| Year   : %fm-57{%mv_year} |\n| Genre  : %fm-57{%mv_genre} |\n| Title  : %fm-57{%mv_title} |\n"
+set ioNJ(message_footer)             "`-----================---------------------------==------------------'\n"
+
+set ioNJ(zipscript_header)           ".----== ioNiNJA %ioNiNJA_VER ==--------------------------.\n"
+set ioNJ(zipscript_sfv_ok)           "| + SFV-file: oK!                                  |\n"
+set ioNJ(zipscript_any_ok)           "| + File: ok! (allowed w/o any checks)             |\n"
+set ioNJ(zipscript_any_ok)           "| + File: oK!                                      |\n"
+set ioNJ(zipscript_SFV_fail)         "| + CRC-Check: FaileD!                             |\n"
+set ioNJ(zipscript_sfv_no)           "| + CRC-Check: NO SFV!                             |\n"
+set ioNJ(zipscript_SFV_ok)           "| + CRC-Check: oK!                                 |\n"
+set ioNJ(zipscript_SFV_skip)         "| + CRC-Check: SKIPPED!                            |\n"
+set ioNJ(zipscript_no_sfv)           "| + CRC-Check: Upload SFV first!                   |\n"
+set ioNJ(zipscript_0byte_del)        "| + 0byte file: DeleTeD!                           |\n"
+set ioNJ(zipscript_mp3_del)          "| + MP3: RELEASE is Banned                         |\n"
+set ioNJ(zipscript_mp3_ban_year)     "| + MP3: RELEASE is not from an allowed year       |\n"
+set ioNJ(zipscript_mp3_ban_genre)    "| + MP3: GENRE is BANNED!                          |\n"
+set ioNJ(zipscript_complete_del)     "| + COMPLETE: Not allowed to delete!               |\n"
+set ioNJ(zipscript_mp3_alo_genre)    "| + MP3: GENRE is is not allowed!                  |\n"
+set ioNJ(zipscript_sample_dual)      "| + SAMPLE: Only 1 sample per SAMPLE DIR           |\n"
+set ioNJ(zipscript_sample_no_media)  "| + SAMPLE: Only sample files allowed here         |\n"
+set ioNJ(zipscript_dual_sfv)         "| + SFV-file: Dual SFV NOT ALLOWED!                |\n"
+set ioNJ(zipscript_zip_verify)       "| + Banned: This zip file doesn't belog here       |\n"
+set ioNJ(zipscript_ban_nfo)          "| + NFO-file: Banned NFO!                          |\n"
+set ioNJ(zipscript_dual_nfo)         "| + NFO-file: Dual NFO NOT ALLOWED!                |\n"
+set ioNJ(zipscript_not_in_SFV)       "| + Not In SFV: Files has to be in the sfv!        |\n"
+set ioNJ(zipscript_file_ban)         "| + Banned: File is banned!                        |\n"
+set ioNJ(zipscript_file_not_allowed) "| + Banned: File is not allowed!                   |\n"
+set ioNJ(zipscript_complete_lock)    "| + NOT PERMITTED: Completed releases are locked!  |\n"
+set ioNJ(zipscript_dir_ban)          "| + AntiFuckup: Dir is banned!                     |\n"
+set ioNJ(zipscript_subdir_ban)	     "| + AntiFuckup: MKD not allowed in subdir!         |\n"
+set ioNJ(zipscript_subdir_sfv_root)  "| + AntiFuckup: SFV in root                        |\n"
+set ioNJ(zipscript_dir_not_allowed)  "| + AntiFuckup: Dir is not allowed!                |\n"
+set ioNJ(zipscript_footer_skip)      "`--------------------------------=====-------------'\n"
+
+set ioNJ(realtime_mp3_info)          "+-=\[ID3tag\]=------------------------===------------+\n| Title:%fm-39{%audio_title} |\n| Artist:%fm-39{%audio_artist} |\n| Album:%fm-39{%audio_album} |\n| Genre:%fm-39{%audio_genre} |\n| Year:%fm-39{%audio_year} |\n"
+set ioNJ(realtime_flac_info)          "+-=\[FLACtag\]=-----------------------===------------+\n| Title:%fm-39{%audio_title} |\n| Artist:%fm-39{%audio_artist} |\n| Album:%fm-39{%audio_album} |\n| Genre:%fm-39{%audio_genre} |\n| Year:%fm-39{%audio_year} |\n"
+set ioNJ(realtime_user_header)       "+-=\[UserTop\]=-------------------===----------------+\n"
+set ioNJ(realtime_user_body)         "| %fm3{%race_user_position.} %fm-15{%race_user_name} %fm10{%race_user_size} %fm5{%race_user_filesF} %fm11{%race_user_speed} |\n"
+set ioNJ(realtime_user_footer)       ""
+set ioNJ(realtime_group_header)      "+-=\[GroupTop\]=--------------------===--------------+\n"
+set ioNJ(realtime_group_body)        "| %fm3{%race_group_position.} %fm-15{%race_group_name} %fm10{%race_group_size} %fm5{%race_group_filesF} %fm11{%race_group_speed} |\n"
+set ioNJ(realtime_group_footer)      ""
+set ioNJ(zipscript_footer_unknown)   "`-\[-NO-SFV-\]----------------------\[%fm3{%files_uploaded}/???\]--'\n"
+set ioNJ(zipscript_footer_ok)        "`-\[%progress_bar\]--------------------\[ %fm4{%files_uploadedF} / %fm-4{%total_filesF} \]--'\n"
+set ioNJ(zipscript_footer_error)     "|-%fm-46{%progress_bar}|\n`-----------------------------------========-------'\n"
+
+set ioNJ(rescan_help)                ".----== ioNiNJA %ioNiNJA_VER ==----------------------------------------------.\n| site rescan this          - Rescan the dir you're in                |\n| site rescan all           - Rescan all dirs recursively             |\n| For Resort: Try site resort                                         |\n`--------=====-------------------------------------=====--------------'\n"
+set ioNJ(resort_help)                ".----== ioNiNJA %ioNiNJA_VER ==----------------------------------------------.\n| All commands are recursive, use rescan to resort single rels        |\n| site resort imdb          - Get imdb info and resort accordingly    |\n| site resort mp3           - Resort all subdirs with mp3files        |\n| site resort mv            - Resort all subdirs from mvnfo           |\n| site resort xxx           - Resort all subdirs from xxx info        |\n| site resort tv            - Resort all subdirs from tv info         |\n`--------=====--------------------------------------=====-------------'\n"
+
+#
+# Indicators and progress-meters. ===============================
+#
+# How Indicators look
+# incomplete_indicator = when a normal release is incomplete.
+# incomplete_indicator_nfo_ = when a normal release is missing nfo in the dir.
+# incomplete_base_indicator_nfo = when a multi-cd release is missing nfo in
+# the base dir.
+# %di = dirname
+# Do NOT use "\/:?*"<>|"
+set ioNJ(incomplete_indicator)        "(iNCOMPLETE)-%di"
+set ioNJ(incomplete_indicator_sfv)    "(iNCOMPLETE)-(no_sfv)-%di"
+set ioNJ(incomplete_indicator_nfo)    "(iNCOMPLETE)-(no_nfo)-%di"
+set ioNJ(incomplete_indicator_sample) "(iNCOMPLETE)-(no_sample)-%di"
+
+# If dir is defined as a subdir, theese will be used instead
+# incomplete_cd_indicator = when a multi-cd release is incomplete.
+# incomplete_indicator_cd_sfv = Multicd without sfv
+# %di = dir %pa = parentdir
+set ioNJ(incomplete_indicator_cd)     "(iNCOMPLETE)-%di-%pa"
+set ioNJ(incomplete_indicator_cd_sfv) "(iNCOMPLETE)-(no_sfv)-%di-%pa"
+set ioNJ(progressmeter)          "\[%progress_bar\]-%percentdone%Complete-\[%sitename\]"
+set ioNJ(audio_completebar)      "\[%sitename\]-(%total_size %total_filesF-COMPLETE-%audio_genre %audio_year)-\[%sitename\]"
+set ioNJ(flac_audio_completebar) "\[%sitename\]-(%total_size %total_filesF-COMPLETE-%audio_genre %audio_year)-\[%sitename\]"
+set ioNJ(other_completebar)      "\[%sitename\]-(%total_size %total_filesF-COMPLETE)-\[%sitename\]"
+
+#delete bar
+set ioNJ(del_progressmeter)      "\[*\]-*%Complete-\[*\]"
+set ioNJ(del_completebar)        "\[*\]-*COMPLETE*-\[*\]"
+
+# This is the progressbar. They need to be exactly the same length but can be pretty much anything you want
+# and it can also be as long as you want it
+# DO NOT USE "\/:?*"<>|" (windows does not like them)
+#
+set ioNJ(charbar_missing)    "----------"
+set ioNJ(charbar_filled)     "##########"
+
+###EXAMPLE
+#set ioNJ(charbar_missing)     "--------"
+#set ioNJ(charbar_filled)      "COMPLETE"
+
+
+
+##################  Sample Theme
+# Sample bar type 0=dir 1=file
+set ioNJ(sampletype) 1
+
+#set this to 1 to have a sample bar in parent directory if it's a sample
+set ioNJ(sample_bar_parent) 1
+
+###avalible variables : %vcodec %vframerate %vbitrate %vheight %vwidth %var %acodec %abitrate  %abrmode  %achans  %asamplerate %ares, "" to disable
+set ioNJ(samplebar)      "\[%sitename\]-(%vcodec @ %vbitrate. %vwidthx%vheight %var-%acodec @ %abitrate)-\[%sitename\]"
+
+set ioNJ(sample_head)       ".---------------------------------\[SAMPLE\]----------------------------------.\n"
+set ioNJ(sample_audio_head) "|---------------------------------\[AUDiO\]-----------------------------------|\n"
+set ioNJ(sample_video_head) "|---------------------------------\[ViDEO\]-----------------------------------|\n"
+set ioNJ(sample_footer)     "'------------------------------\[ioNiNJA %ioNiNJA_VER\]-------------------------------'\n"
+set ioNJ(sample_text_head)  "|----------------------------------\[TEXT\]-----------------------------------|\n"
+
+set ioNJ(sample_copyright)  "| CopyRight   : %fm-59{%value} |\n"
+set ioNJ(sample_moviename)  "| MovieName   : %fm-59{%value} |\n"
+set ioNJ(sample_performer)  "| Performer   : %fm-59{%value} |\n"
+set ioNJ(sample_format)     "| Format      : %fm-59{%value} |\n"
+set ioNJ(sample_bitrate)    "| BitRate     : %fm-59{%value} |\n"
+set ioNJ(sample_writeapp)   "| WriteApp    : %fm-59{%value} |\n"
+set ioNJ(sample_writelib)   "| WriteLib    : %fm-59{%value} |\n"
+set ioNJ(sample_audio_format)	      "| Codec       : %fm-59{%value} |\n"
+set ioNJ(sample_audio_codecprofile)   "| CodecProf   : %fm-59{%value} |\n"
+set ioNJ(sample_audio_bitrate)        "| BitRate     : %fm-59{%value} |\n"
+set ioNJ(sample_audio_brmode)	      "| BRmode      : %fm-59{%value} |\n"
+set ioNJ(sample_audio_channels)	      "| Channels    : %fm-59{%value} |\n"
+set ioNJ(sample_audio_chanpos)	      "| Channels    : %fm-59{%value} |\n"
+set ioNJ(sample_audio_samprate)	      "| SampRate    : %fm-59{%value} |\n"
+set ioNJ(sample_audio_writelib)       "| WriteLib    : %fm-59{%value} |\n"
+set ioNJ(sample_audio_res)            "| Resolution  : %fm-59{%value} |\n"
+set ioNJ(sample_video_format)      "| CodecInfo   : %fm-59{%value} |\n"
+set ioNJ(sample_video_formatinfo)  "| CodecFamily : %fm-59{%value} |\n"
+set ioNJ(sample_video_pack)	       "| CodecPack   : %fm-59{%value} |\n"
+set ioNJ(sample_video_bvop)        "| CodecBvop   : %fm-59{%value} |\n"
+set ioNJ(sample_video_qpel)        "| CodecQpel   : %fm-59{%value} |\n"
+set ioNJ(sample_video_gmc)         "| CodecGMC    : %fm-59{%value} |\n"
+set ioNJ(sample_video_matrix)      "| CodecMatrix : %fm-59{%value} |\n"
+set ioNJ(sample_video_codec)	   "| Codec       : %fm-59{%value} |\n"
+set ioNJ(sample_video_cabac)       "| Video CABAC : %fm-59{%value} |\n"
+set ioNJ(sample_video_ReFrames)    "| ReFrames    : %fm-59{%value} |\n"
+set ioNJ(sample_video_width)	   "| Width       : %fm-59{%value} |\n"
+set ioNJ(sample_video_height)	   "| Height      : %fm-59{%value} |\n"
+set ioNJ(sample_video_aspect)      "| AspectRatio : %fm-59{%value} |\n"
+set ioNJ(sample_video_bitrate) 	   "| BitRate     : %fm-59{%value} |\n"
+set ioNJ(sample_video_framerate)   "| FrameRate   : %fm-59{%value} |\n"
+set ioNJ(sample_video_formatprof)  "| FormProf    : %fm-59{%value} |\n"
+set ioNJ(sample_video_muxmode)     "| Muxing Mode : %fm-59{%value} |\n"
+set ioNJ(sample_video_scantype)	   "| Scan Type   : %fm-59{%value} |\n"
+set ioNJ(sample_video_resframes)   "| ReFrames    : %fm-59{%value} |\n"
+set ioNJ(sample_video_codecid) 	   "| CodecID     : %fm-59{%value} |\n"
+set ioNJ(sample_video_standard)    "| Standard    : %fm-59{%value} |\n"
+set ioNJ(sample_video_interlace)   "| Interlace   : %fm-59{%value} |\n"
+set ioNJ(sample_video_resolution)  "| Resolution  : %fm-59{%value} |\n"
+set ioNJ(sample_video_chroma)	   "| Chroma      : %fm-59{%value} |\n"
+set ioNJ(sample_video_writelib)	   "| Write Lib   : %fm-59{%value} |\n"
+set ioNJ(sample_text_lang) 		   "| Language    : %fm-59{%value} |\n"

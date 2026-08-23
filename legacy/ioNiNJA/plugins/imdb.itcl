@@ -1,0 +1,468 @@
+#######################
+## IMDb/OMDb lookup
+#######################
+
+source [file join [file dirname [info script]] imdb.cfg]
+
+namespace eval ::ioNiNJA::iMDB {
+    namespace import -force ::ioNiNJA::*
+    variable Cache {}
+    variable HttpsRegistered 0
+}
+
+proc ::ioNiNJA::iMDB::dict_get {data key {default "N/A"}} {
+    if {[dict exists $data $key]} {
+        set value [dict get $data $key]
+        if {$value ne ""} {
+            return $value
+        }
+    }
+    return $default
+}
+
+proc ::ioNiNJA::iMDB::json_get {json key {default ""}} {
+    set pattern [format {"%s"[ \t\r\n]*:[ \t\r\n]*"((?:\\.|[^"\\])*)"} $key]
+    if {[regexp $pattern $json -> value]} {
+        return [string map [list "\\\"" "\"" "\\/" "/" "\\n" "\n" "\\r" "\r" "\\t" "\t" "\\\\" "\\"] $value]
+    }
+    return $default
+}
+
+proc ::ioNiNJA::iMDB::json_to_dict {json} {
+    if {![catch {package require json}]} {
+        return [::json::json2dict $json]
+    }
+
+    set result {}
+    foreach key {
+        Response Error Title Year Rated Released Runtime Genre Director Writer
+        Actors Plot Language Country Awards Poster Metascore imdbRating
+        imdbVotes imdbID Type DVD BoxOffice Production Website totalSeasons
+    } {
+        dict set result $key [json_get $json $key "N/A"]
+    }
+    return $result
+}
+
+proc ::ioNiNJA::iMDB::load_api_key {} {
+    global ioNJ
+
+    if {[info exists ioNJ(omdb_api_key)] && [string trim $ioNJ(omdb_api_key)] ne ""} {
+        return [string trim $ioNJ(omdb_api_key)]
+    }
+
+    if {![info exists ioNJ(omdb_api_key_file)] || ![file exists $ioNJ(omdb_api_key_file)]} {
+        return ""
+    }
+
+    set handle [open $ioNJ(omdb_api_key_file) r]
+    fconfigure $handle -encoding utf-8
+    set config [read $handle]
+    close $handle
+
+    if {[regexp {omdb\.api_key[ \t]+"([^"]+)"} $config -> apiKey]} {
+        return [string trim $apiKey]
+    }
+    return ""
+}
+
+proc ::ioNiNJA::iMDB::https_socket {verify args} {
+    set socketArgs {}
+    foreach arg $args {
+        if {$arg eq "-async"} {
+            continue
+        }
+        lappend socketArgs $arg
+    }
+    return [::tls::socket -autoservername 1 -require $verify {*}$socketArgs]
+}
+
+proc ::ioNiNJA::iMDB::ensure_http {} {
+    global ioNJ
+    variable HttpsRegistered
+
+    if {[catch {package require http} error]} {
+        return "Tcl http package is unavailable: $error"
+    }
+    if {[catch {package require tls} error]} {
+        return "Tcl tls package is unavailable: $error"
+    }
+
+    if {!$HttpsRegistered} {
+        set verify 0
+        if {[info exists ioNJ(omdb_tls_verify)]} {
+            set verify $ioNJ(omdb_tls_verify)
+        }
+        ::http::register https 443 [list ::ioNiNJA::iMDB::https_socket $verify]
+        set HttpsRegistered 1
+    }
+    return ""
+}
+
+proc ::ioNiNJA::iMDB::build_url {query {year ""}} {
+    global ioNJ
+
+    set endpoint [string trimright $ioNJ(omdb_endpoint) "?"]
+    set apiKey [load_api_key]
+    if {[regexp -nocase {^tt[0-9]+$} $query]} {
+        set params [list apikey $apiKey i $query plot short r json]
+    } else {
+        set params [list apikey $apiKey t $query plot short r json]
+    }
+    if {$year ne ""} {
+        lappend params y $year
+    }
+    return "${endpoint}?[::http::formatQuery {*}$params]"
+}
+
+proc ::ioNiNJA::iMDB::fetch {query {year ""}} {
+    global ioNJ
+    variable Cache
+
+    set apiKey [load_api_key]
+    if {$apiKey eq ""} {
+        return [dict create ok 0 error "OMDb API key is missing"]
+    }
+
+    set packageError [ensure_http]
+    if {$packageError ne ""} {
+        return [dict create ok 0 error $packageError]
+    }
+
+    set cacheKey [string tolower "$query|$year"]
+    set now [clock seconds]
+    if {[dict exists $Cache $cacheKey]} {
+        lassign [dict get $Cache $cacheKey] timestamp cachedData
+        if {$now - $timestamp < $ioNJ(omdb_cache_seconds)} {
+            return [dict create ok 1 data $cachedData]
+        }
+        dict unset Cache $cacheKey
+    }
+
+    set token ""
+    set timeout $ioNJ(omdb_timeout_ms)
+    set url [build_url $query $year]
+    if {[catch {
+        set token [::http::geturl $url -timeout $timeout]
+        set status [::http::status $token]
+        set code [::http::ncode $token]
+        set data [::http::data $token]
+    } error]} {
+        if {$token ne ""} {
+            catch {::http::cleanup $token}
+        }
+        return [dict create ok 0 error $error]
+    }
+    ::http::cleanup $token
+
+    if {$status ne "ok" || $code < 200 || $code >= 300} {
+        return [dict create ok 0 error "HTTP status $status ($code)"]
+    }
+
+    dict set Cache $cacheKey [list $now $data]
+    return [dict create ok 1 data $data]
+}
+
+proc ::ioNiNJA::iMDB::lookup {query {year ""}} {
+    set fetched [fetch $query $year]
+    if {![dict get $fetched ok]} {
+        return $fetched
+    }
+
+    if {[catch {set data [json_to_dict [dict get $fetched data]]} error]} {
+        return [dict create ok 0 error "OMDb response parse failed: $error"]
+    }
+    if {[dict_get $data Response "False"] ne "True"} {
+        return [dict create ok 0 error [dict_get $data Error "OMDb lookup failed"]]
+    }
+    return [dict create ok 1 title $data]
+}
+
+proc ::ioNiNJA::iMDB::parse_release_name {release} {
+    set name [file tail $release]
+    regsub -nocase {\.(mkv|mp4|avi|mov|wmv|m4v|iso)$} $name "" name
+    regsub -- {-[^-._ ]+$} $name "" name
+    set name [regsub -all {[\._]+} $name " "]
+    regsub -all {[ ]+} [string trim $name] " " name
+
+    set words [split $name " "]
+    set metadataIndex [llength $words]
+    set metadataPattern {^(480p|576p|720p|1080[pi]|2160p|4320p|uhd|xvid|divx|x26[45]|h[ .]?26[45]|hevc|av1|web|web-?dl|webrip|bluray|blu-?ray|b[dr]rip|dvd(?:rip)?|hd(?:tv|rip)|remux|cam|telesync|proper|repack|internal|limited|readnfo|multi|complete|s[0-9]{1,2}(?:e[0-9]{1,3})?|season|ddp?[0-9]*|eac3|ac3|aac|dts|truehd|atmos|flac|mp3)$}
+
+    for {set index 0} {$index < [llength $words]} {incr index} {
+        if {[regexp -nocase $metadataPattern [lindex $words $index]]} {
+            set metadataIndex $index
+            break
+        }
+    }
+
+    set year ""
+    if {$metadataIndex > 0} {
+        set candidate [lindex $words [expr {$metadataIndex - 1}]]
+        if {[regexp {^(18[89][0-9]|19[0-9]{2}|20[0-9]{2})$} $candidate]} {
+            set year $candidate
+            incr metadataIndex -1
+        }
+    }
+
+    set title [join [lrange $words 0 [expr {$metadataIndex - 1}]] " "]
+    regsub -all {[ ]+} [string trim $title] " " title
+    return [dict create title $title year $year]
+}
+
+proc ::ioNiNJA::iMDB::rating_bar {rating} {
+    if {![string is double -strict $rating]} {
+        return "----------"
+    }
+    set stars [expr {int(round($rating))}]
+    if {$stars < 0} {set stars 0}
+    if {$stars > 10} {set stars 10}
+    return "[string repeat * $stars][string repeat - [expr {10 - $stars}]]"
+}
+
+proc ::ioNiNJA::iMDB::split_field {value} {
+    if {$value eq "N/A" || $value eq ""} {
+        return [list -]
+    }
+    set result {}
+    foreach item [split $value ,] {
+        lappend result [string trim $item]
+    }
+    return $result
+}
+
+proc ::ioNiNJA::iMDB::safe_component {value} {
+    regsub -all {[/\\:*?"<>|]} $value {} value
+    return [string trim $value]
+}
+
+proc ::ioNiNJA::iMDB::apply_sorting {values} {
+    global ioNJ pwd path
+
+    if {$ioNJ(imdb_sorting) eq ""} {
+        return
+    }
+
+    foreach name {
+        title year runtime rating votes company top250 openscreens screens limited
+        release group director cast country language genre
+    } {
+        set $name [dict get $values $name]
+    }
+    set decade "0000"
+    if {[regexp {^[0-9]{4}} $year validYear]} {
+        set decade [string replace $validYear end end 0]
+    }
+    set roundedRating 0
+    if {[string is double -strict $rating]} {
+        set roundedRating [format %.0f $rating]
+    }
+
+    foreach rule [split [string trim $ioNJ(imdb_sorting)] \n] {
+        lassign $rule pwdmatch target
+        if {![regexp -nocase $pwdmatch $pwd]} {
+            continue
+        }
+
+        set titleFirst [string toupper [string index $title 0]]
+        if {![regexp {[A-Z]} $titleFirst]} {set titleFirst "#"}
+        set targets [list [string map [list \
+            %runtime [safe_component $runtime] %company [safe_component $company] \
+            %group [safe_component $group] %top250 [safe_component $top250] \
+            %title_first $titleFirst %title [safe_component $title] %year $year \
+            %decade $decade %rating $roundedRating %votes [safe_component $votes] \
+            %openscreens [safe_component $openscreens] %screens [safe_component $screens] \
+            %release [safe_component $release] %limited [safe_component $limited]] $target]]
+
+        foreach expansion {
+            {%country country country}
+            {%director director director}
+            {%cast cast cast}
+            {%language language language}
+            {%genre genre genre}
+        } {
+            lassign $expansion cookie fieldName firstCookie
+            if {![string match "*$cookie*" $target]} {
+                continue
+            }
+            set expanded {}
+            foreach current $targets {
+                foreach value [dict get $values $fieldName] {
+                    set value [safe_component $value]
+                    set mapping [list $cookie $value]
+                    if {$fieldName in {director cast}} {
+                        lappend mapping "%${firstCookie}_first" [string toupper [string index $value 0]]
+                    }
+                    lappend expanded [string map $mapping $current]
+                }
+            }
+            set targets $expanded
+        }
+
+        foreach targetPath $targets {
+            if {[regexp -nocase $ioNJ(notparent) $path]} {
+                set linkto [file dirname $path]
+            } else {
+                set linkto $path
+            }
+            sorting $ioNJ(imdb_sym_type) $linkto $targetPath $pwd
+        }
+    }
+}
+
+proc ::ioNiNJA::iMDB::store_info {data} {
+    global pwd path args ioNJ uid gid
+
+    set title [dict_get $data Title]
+    set year [dict_get $data Year]
+    set runtime [dict_get $data Runtime]
+    set rating [dict_get $data imdbRating]
+    set votes [dict_get $data imdbVotes]
+    set plot [dict_get $data Plot]
+    set imdbID [dict_get $data imdbID]
+    set type [string tolower [dict_get $data Type "movie"]]
+    set mpaa [dict_get $data Rated]
+    set tagline "-"
+    set lifetime "-"
+    set opengross [dict_get $data BoxOffice "-"]
+    set opencountry "-"
+    set openday "-"
+    set openyear "-"
+    set openscreens "-"
+    set screens "-"
+    set budget "-"
+    set top250 "-"
+    set company [dict_get $data Production "-"]
+    set director [split_field [dict_get $data Director]]
+    set cast [split_field [dict_get $data Actors]]
+    set country [split_field [dict_get $data Country]]
+    set language [split_field [dict_get $data Language]]
+    set genre [split_field [dict_get $data Genre]]
+    set tv "-"
+    set limited "N/A"
+    if {$type eq "series"} {
+        set tv "TV"
+        set limited "TV"
+    }
+    if {$ioNJ(imdb_strip_the)} {
+        regsub -nocase {^the } $title {} title
+    }
+
+    set titleurl "https://www.imdb.com/title/$imdbID/"
+    set ratbar [rating_bar $rating]
+    set release [file tail $path]
+    if {[regexp -nocase $ioNJ(notparent) $release]} {
+        set release [file tail [file dirname $path]]
+    }
+    set group [get_grpname $release]
+
+    if {$ioNJ(imdb_get_html) ne ""} {
+        set htmlName [string map [list %release $release] $ioNJ(imdb_get_html)]
+        if {![catch {set handle [open [file join $path $htmlName] w]}]} {
+            puts $handle "<TITLE>IMDb redirect</TITLE>"
+            puts $handle "<META HTTP-EQUIV=\"refresh\" CONTENT=\"0;URL=$titleurl\">"
+            close $handle
+        }
+    }
+
+    if {$ioNJ(imdb_get_cover) && [dict_get $data Poster] ne "N/A"} {
+        if {$ioNJ(overwrite_folder_jpg) || ![file exists [file join $path folder.jpg]]} {
+            save_pic_custom [dict_get $data Poster] [file join $path folder.jpg]
+        }
+    }
+
+    set values [dict create \
+        title $title year $year runtime $runtime rating $rating votes $votes \
+        company $company top250 $top250 openscreens $openscreens screens $screens \
+        limited $limited release $release group $group director $director cast $cast \
+        country $country language $language genre $genre]
+    apply_sorting $values
+
+    set replaceMap [list \
+        %imdb_runtime $runtime %imdb_company $company %imdb_limited $limited \
+        %imdb_title $title %imdb_year $year %imdb_rating $rating %imdb_votes $votes \
+        %imdb_director [join $director ,] %imdb_cast [join $cast ,] %imdb_mpaa $mpaa \
+        %imdb_country [join $country ,] %imdb_language [join $language ,] \
+        %imdb_genre [join $genre ,] %imdb_opengross $opengross \
+        %imdb_opencountry $opencountry %imdb_openday $openday \
+        %imdb_openyear $openyear %imdb_openscreens $openscreens \
+        %imdb_screens $screens %imdb_budget $budget %imdb_top250 $top250]
+    set imdbtemp [string map $replaceMap $ioNJ(imdb_bar)]
+    regsub -all {[/\\:*?"<>|]} $imdbtemp {} imdbtemp
+    set imdbtag [file join $path $imdbtemp]
+    set oldfiles [glob -nocomplain -directory $path [string map {\[ \\[ \] \\]} $ioNJ(del_imdbbar)]]
+    foreach oldfile $oldfiles {catch {file delete -force $oldfile}}
+
+    if {![file exists $imdbtag]} {
+        if {$ioNJ(imdbtype)} {
+            if {![catch {set handle [open $imdbtag w]}]} {close $handle}
+        } else {
+            catch {file mkdir $imdbtag}
+        }
+        catch {vfs write $imdbtag $uid $gid 777}
+        catch {vfs flush $path}
+    }
+
+    set imdbInfo [list \
+        $title $titleurl $year $tv $lifetime $ratbar $rating $votes \
+        [join $director ,] [join $cast ,] $mpaa [join $country ,] \
+        [join $language ,] [join $genre ,] $tagline $plot $opengross \
+        $opencountry $openday $openyear $openscreens $screens $budget \
+        $top250 $limited $company $runtime]
+    writechattr 30 $imdbInfo
+
+    if {$args ne "RESCAN"} {
+        put_log "IMDB: [list $pwd {*}$imdbInfo]"
+    }
+}
+
+proc ::ioNiNJA::iMDB::imdb_get_info {query {year ""}} {
+    global pwd
+
+    iputs -nobuffer "IMDb/OMDb: $pwd"
+    set result [lookup $query $year]
+    if {![dict get $result ok]} {
+        putlog "ERROR IMDB: $pwd - [dict get $result error]"
+        return 0
+    }
+    store_info [dict get $result title]
+    return 1
+}
+
+proc ::ioNiNJA::iMDB::imdb_readnfo {} {
+    global pwd path ioNJ
+
+    if {![regexp -nocase $ioNJ(imdb_path) $pwd]} {
+        return
+    }
+    if {[vfs chattr $path 30] ne ""} {
+        return
+    }
+
+    set nfoFile [lindex [get_files $path *.nfo] 0]
+    if {$nfoFile ne ""} {
+        set nfoData [readfile $nfoFile]
+        if {[regexp -nocase {imdb(?:\.com)?/title/(tt[0-9]+)} $nfoData -> imdbID]} {
+            imdb_get_info $imdbID
+            return
+        }
+    }
+
+    if {!$ioNJ(imdb_folder_search)} {
+        return
+    }
+    set parsed [parse_release_name [file tail $pwd]]
+    set title [dict get $parsed title]
+    if {$title ne ""} {
+        imdb_get_info $title [dict get $parsed year]
+    }
+}
+
+if {![info exists args]} {
+    set args ""
+}
+if {![info exists pwd]} {
+    set pwd [file dirname [lindex $args 2]]
+    set path [file dirname [lindex $args 0]]
+    ::ioNiNJA::iMDB::imdb_readnfo
+}

@@ -1,0 +1,148 @@
+
+#####################################################
+# Highly experimental but should work on most movies
+# that went up on the cinema
+#
+
+
+
+
+#Paths where we should try to get trailers.
+set ioNJT(paths) {/XViD/|/CiNEMA|/HD/|/DVDR/|/DVDR-CUSTOM/|/720p/|/1080p/|/MOViES/|/MOViES UHD/}
+
+#Name of the trailer. Avalible is variables: %release %fname
+set ioNJT(trailer_name) "%fname-trailer.mov"
+
+
+#what quality do we want?
+# it will search the list for the first one that matches
+set ioNJT(quality_list) "480p 720p 1080p h640 h480 h320"
+
+
+namespace eval ::ioNiNJA::Trailer {
+    namespace import -force ::ioNiNJA::*
+}
+
+package require http 
+proc ::ioNiNJA::Trailer::Main {} {global ioNJT path pwd ioNJ
+
+	
+	if {![regexp -nocase $ioNJT(paths) $pwd]} { return }
+	
+	if {[regexp -nocase  $ioNJ(notparent) [file tail $path]]} {
+			set path [file dirname $path]
+   	} 
+	
+	set imdb [lindex [vfs chattr $path 30] 0]
+	
+	regsub -all { } $imdb {+} imdb
+
+	if {$imdb == ""} { return }
+	
+	
+	set trailerurl "http://www.google.com/search?hl=en&btnI=I%27m+Feeling+Lucky&as_sitesearch=www.apple.com%2Ftrailers&q=[::http::formatQuery $imdb]"
+	set trailerurl [get_url $trailerurl]
+
+	if {![regexp -nocase {<A HREF=\"(http://www.apple.com/trailers/.+?)\">here</A>} $trailerurl -> realurl]} { return }
+	
+	set orgurl2 $realurl
+	
+
+	if {[regexp -nocase {/trailer/$} $realurl]} {
+		set realurl "[join [lrange [split $realurl /] 0 end-2] /]/hd/"
+	} else {
+		set realurl ${realurl}hd/
+	}
+
+	
+	
+	
+	set realurlhd [get_url ${realurl}]
+	set orgurl    [get_url $orgurl2]
+	
+	set trailers ""
+	if {[set newmov [regexp -nocase -all -inline {href=\"(http://movies.apple.com/movies/.+?/.+?[0-9]{3,4}p\.mov)\"} $realurlhd]] != ""} {
+			foreach {crap new} $newmov {
+				if {[regsub -nocase {480p\.mov$} $new {h480p.mov} new] || [regsub -nocase {720p\.mov$} $new {h720p.mov} new] || [regsub -nocase {1080p\.mov$} $new {h1080p.mov} new]} {
+					regsub -nocase {480p\.mov$} $new {h480p.mov} new
+					regsub -nocase {720p\.mov$} $new {h720p.mov} new
+					regsub -nocase {1080p\.mov$} $new {h1080p.mov} new
+					regsub -nocase {h\.320\.mov$} $new {h320.mov} new
+					regsub -nocase {h\.480\.mov$} $new {h480.mov} new
+					regsub -nocase {h\.640\.mov$} $new {h640.mov} new
+					regsub -nocase {hh480p\.mov$} $new {h480p.mov} new
+					regsub -nocase {hh720p\.mov$} $new {h720p.mov} new
+					regsub -nocase {hh1080p\.mov$} $new {h1080p.mov} new
+					regsub -nocase {hh\.320\.mov$} $new {h320.mov} new
+					regsub -nocase {hhh\.480\.mov$} $new {h480.mov} new
+					regsub -nocase {hhh\.640\.mov$} $new {h640.mov} new
+					if {![regexp -nocase {\.mov$} $new]} { continue }
+					lappend trailers $new
+				}
+			}
+		set movie [lindex $trailers 0]
+	} elseif {[set newmov [regexp -nocase -all -inline {href=\"(http://movies.apple.com/movies/.+?\.mov)} $orgurl]] != ""} {
+			foreach {crap new} $newmov {
+				regsub -nocase {480p\.mov$} $new {h480p.mov} new
+				regsub -nocase {720p\.mov$} $new {h720p.mov} new
+				regsub -nocase {1080p\.mov$} $new {h1080p.mov} new
+				regsub -nocase {h\.320\.mov$} $new {h320.mov} new
+				regsub -nocase {h\.480\.mov$} $new {h480.mov} new
+				regsub -nocase {h\.640\.mov$} $new {h640.mov} new
+				regsub -nocase {hh480p\.mov$} $new {h480p.mov} new
+				regsub -nocase {hh720p\.mov$} $new {h720p.mov} new
+				regsub -nocase {hh1080p\.mov$} $new {h1080p.mov} new
+				regsub -nocase {hh\.320\.mov$} $new {h320.mov} new
+				regsub -nocase {hhh\.480\.mov$} $new {h480.mov} new
+				regsub -nocase {hhh\.640\.mov$} $new {h640.mov} new
+				if {![regexp -nocase {\.mov$} $new]} { continue }
+				lappend trailers $new
+				
+			}
+		set movie [lindex $trailers 0]
+	} else {
+		if {[regexp -nocase {HREF="(large.html|high.html)"} $orgurl -> trailerpage]} {
+			if {![regexp -nocase {(http://movies.apple.com/movies/.+?/.+?/.+?.mov)} [get_url "${orgurl2}$trailerpage"] -> trailer]} {
+				return
+			}
+		} elseif {![regexp -nocase {(http://movies.apple.com/movies/.+?.mov)} $orgurl -> trailer]} {
+			return
+		}
+		
+		set newurl [join [lrange [split $trailer /] 0 end-1] /]
+		
+
+		if {![regexp -nocase {([a-z0-9\.\-\_\)\(A-Z]+.mov)} [get_url $trailer] -> trailer]} {
+			return
+		}
+				
+		set movie "$newurl/$trailer"
+		
+	}
+	
+	
+	if {$trailers != ""} {
+		foreach temp $$ioNJT(quality_list) {
+			if {[set temp2 [lsearch -inline -regexp $trailers $temp]] != ""} {
+				set movie $temp2
+				break
+			}
+		}
+	}
+		
+	set trailer_name [string map [list %fname [get_file_name]] $ioNJT(trailer_name)]
+	set trailer_name [file join $path $trailer_name]
+	catch {file mkdir [file dirname $trailer_name]}
+	exec -- ../scripts/ioNiNJA/MiSC/curl.exe $movie --output $trailer_name &
+	return
+}
+
+
+
+
+
+if {![info exists pwd]} {
+	set pwd  "[file dirname [lindex $args 2]]"
+	set path "[file dirname [lindex $args 0]]"
+	::ioNiNJA::Trailer::Main
+}

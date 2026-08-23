@@ -1,0 +1,47 @@
+proc get_process_id_tcl9 {exeName} {
+	set script {
+		param([string]$exe)
+		$name = [IO.Path]::GetFileNameWithoutExtension($exe)
+		$process = Get-Process -Name $name -ErrorAction SilentlyContinue |
+			Select-Object -First 1
+		if ($null -ne $process) { [Console]::Out.Write($process.Id) }
+	}
+	return [exec -- powershell.exe -NoLogo -NoProfile -NonInteractive \
+		-Command "& {$script}" -exe $exeName]
+}
+
+source [file join [file dirname [info script]] botchk.cfg]
+
+
+if {![file exists $edf(eggdrop_dir)] || [file isfile $edf(eggdrop_dir)]} {
+	putlog -error "BotChkError: EggdropDir $edf(eggdrop_dir) does not exist or is not a dir"
+}
+
+if {![file exists [file join $edf(eggdrop_dir) $edf(botscript)]] || ![file isfile [file join $edf(eggdrop_dir) $edf(botscript)]]} {
+	putlog -error "BotChkError: [file join $edf(eggdrop_dir) $edf(botscript)] does not exist or is not a file"
+}
+
+if {![file exists [file join $edf(eggdrop_dir) $edf(userfile)]] || ![file isfile [file join $edf(eggdrop_dir) $edf(userfile)]]} {
+	putlog -error "BotChkError: [file join $edf(eggdrop_dir) $edf(userfile)] does not exist or is not a file"
+}
+
+if {![file exists [file join $edf(eggdrop_dir) $edf(chanfile)]] || ![file isfile [file join $edf(eggdrop_dir) $edf(chanfile)]]} {
+	putlog -error "BotChkError: Chanfile [file join $edf(eggdrop_dir) $edf(chanfile)] does not exist or is not a file"
+}
+
+
+cd $edf(eggdrop_dir)
+
+catch {file copy -force [file join $edf(eggdrop_dir) $edf(botscript)] [file join $edf(eggdrop_dir) ${edf(botscript)}.bak]}
+catch {file copy -force [file join $edf(eggdrop_dir) $edf(chanfile)] [file join $edf(eggdrop_dir) ${edf(botscript)}.bak]}
+catch {file copy -force [file join $edf(eggdrop_dir) $edf(userfile)] [file join $edf(eggdrop_dir) ${edf(botscript)}.bak]}
+
+
+
+#checkrunning
+	set pro [get_process_id_tcl9 $edf(eggdrop_name)]
+	if {$pro == ""} { 
+		catch {exec -- $edf(eggdrop_name) &}
+		set pro [get_process_id_tcl9 $edf(eggdrop_name)]
+	} 
+	iputs -nobuffer "$pro"

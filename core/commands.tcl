@@ -11,6 +11,9 @@ namespace eval ::dZSbot::Commands {
 
     variable Commands
     variable MaxIrcMessageLength 390
+    variable PubmFallbackBound 0
+    variable PublicLastKey ""
+    variable PublicLastClock 0
     array set Commands {}
 }
 
@@ -26,20 +29,43 @@ proc ::dZSbot::Commands::Register {module command callback {description ""}} {
         description $description]
 
     if {[llength [info commands ::bind]]} {
-        ::bind pub - $normalized $callback
+        set handler [HandlerName $normalized]
+        proc $handler {nick host hand chan text} [format {
+            return [::dZSbot::Commands::PubInvoke %s %s $nick $host $hand $chan $text]
+        } [list $normalized] [list $callback]]
+
+        catch {::unbind pub - $normalized $callback}
+        catch {::unbind pub - $normalized $handler}
+        ::bind pub - $normalized $handler
+
+        set uppercase [string toupper $normalized]
+        if {$uppercase ne $normalized} {
+            catch {::unbind pub - $uppercase $callback}
+            catch {::unbind pub - $uppercase $handler}
+            ::bind pub - $uppercase $handler
+        }
+
+        EnsurePubmFallback
     }
 
     ::dZSbot::Logger::Debug "Registered command $normalized for $module"
     return $normalized
 }
 
+proc ::dZSbot::Commands::HandlerName {command} {
+
+    set mapped [string map [list "!" "bang_" "." "_" "-" "_" ":" "_"] $command]
+    return "::dZSbot::Commands::PubHandler_$mapped"
+}
+
 proc ::dZSbot::Commands::Normalize {command} {
 
-    if {[string index $command 0] ne "!"} {
-        return "!$command"
+    set trimmed [string trim $command]
+    if {[string index $trimmed 0] ne "!"} {
+        set trimmed "!$trimmed"
     }
 
-    return $command
+    return [string tolower $trimmed]
 }
 
 proc ::dZSbot::Commands::Reply {nick chan message} {
@@ -62,6 +88,83 @@ proc ::dZSbot::Commands::Reply {nick chan message} {
     }
 
     ::dZSbot::Logger::Plain $message
+}
+
+proc ::dZSbot::Commands::EnsurePubmFallback {} {
+
+    variable PubmFallbackBound
+
+    if {$PubmFallbackBound} {
+        return
+    }
+    if {![llength [info commands ::bind]]} {
+        return
+    }
+
+    catch {::unbind pubm - * ::dZSbot::Commands::PubmFallback}
+    ::bind pubm - * ::dZSbot::Commands::PubmFallback
+    set PubmFallbackBound 1
+}
+
+proc ::dZSbot::Commands::PubInvoke {command callback nick host hand chan text} {
+
+    MarkPublicCommand $nick $chan $command $text
+
+    if {[catch {uplevel #0 [list $callback $nick $host $hand $chan $text]} error options]} {
+        ::dZSbot::Logger::Error "Command $command failed: $error"
+        Reply $nick $chan "Command failed: $command"
+        return 0
+    }
+
+    return 1
+}
+
+proc ::dZSbot::Commands::PubmFallback {nick host hand chan text} {
+
+    variable Commands
+
+    set trimmed [string trimleft $text]
+    if {$trimmed eq "" || [string index $trimmed 0] ne "!"} {
+        return 0
+    }
+
+    set words [split $trimmed]
+    set command [Normalize [lindex $words 0]]
+    if {![info exists Commands($command)]} {
+        return 0
+    }
+
+    set rest [join [lrange $words 1 end] " "]
+    if {[RecentPublicCommand $nick $chan $command $rest]} {
+        return 0
+    }
+
+    return [Dispatch $command $nick $host $hand $chan $rest]
+}
+
+proc ::dZSbot::Commands::MarkPublicCommand {nick chan command text} {
+
+    variable PublicLastKey
+    variable PublicLastClock
+
+    set PublicLastKey [PublicCommandKey $nick $chan $command $text]
+    set PublicLastClock [clock milliseconds]
+}
+
+proc ::dZSbot::Commands::RecentPublicCommand {nick chan command text} {
+
+    variable PublicLastKey
+    variable PublicLastClock
+
+    set key [PublicCommandKey $nick $chan $command $text]
+    set now [clock milliseconds]
+
+    return [expr {$key eq $PublicLastKey && ($now - $PublicLastClock) < 1000}]
+}
+
+proc ::dZSbot::Commands::PublicCommandKey {nick chan command text} {
+
+    return "[string tolower $nick]|[string tolower $chan]|[Normalize $command]|[string trim $text]"
 }
 
 proc ::dZSbot::Commands::IrcSafeMessage {message} {

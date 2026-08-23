@@ -1,5 +1,34 @@
+## 2.1.4 - 2026-08-23
+
+- Added section-based IRC channel routing for upload and legacy announces.
+- Routed music/MP3/FLAC/XXX sections to `#spam`, Nordic sections to `#monstra`
+  and unmatched sections to `#opers` by default.
+- Expanded Nordic routing for `TV-HD-NORDIC`, `TV-SD-NORDIC`, `X264-NORDIC`,
+  `X265-NORDIC`, `UHD-NORDIC` and future `*-NORDIC` sections.
+- Tightened announce channel matching so broad section families do not
+  accidentally route unrelated sections.
+- Removed the half-implemented `!topic` command and its config entries.
+
 ## 2.1.3 - 2026-08-10
 
+- Added admin-only `!bnc`/`!BNC` status checks for configured BNC host/port
+  targets in `config/modules/site.conf`.
+- Added `!quota`/`!weekly` weekly quota output from a TSV cache, including
+  top uploader rows and automatic `DAYUP` ranking.
+- Added site action IRC commands for `!approve`, `!nuke`, `!unnuke`/`!unuke`,
+  `!reqfilled`, `!reqdel` and `!incomplete`.
+- Added optional timed top uploader announces using the quota cache.
+- Added the `ircflags` module for AutoIRCFlag-style mode assignment from
+  Eggdrop handle flags.
+- Added a clean `legacy/` bundle layout for ioNiNJA and nxTools so GitHub
+  release/source downloads can include the full sitebot stack without live
+  databases, backups or secrets.
+- Included `legacy/init.itcl` and `legacy/nxLib.tcl`, which are required in the
+  ioFTPD scripts root for ioNiNJA and nxTools to load.
+- Updated ioNiNJA `SITE IRC` output to fetch the TLS certificate fingerprint
+  automatically when `ioNJ(irc_fingerprint)` is empty.
+- Normalized IRC theme tags to uppercase so announces use `NEWDATE`, `NUKE`,
+  `UNNUKE`, `APPROVE`, `REQ` and similar labels consistently.
 - Added a Legacy compatibility module for nxTools/ioNiNJA-style site events,
   including wipe, close/open, give/take, approve, nuke/unnuke, request,
   request fill/delete/wipe and newdate announces.

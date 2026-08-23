@@ -13,6 +13,8 @@ proc ::dZSbot::Modules::Retention::CmdRetention {nick host hand chan text} {
 
 proc ::dZSbot::Modules::Retention::CmdStatus {nick host hand chan text} {
 
+    set replyTarget [StatusReplyTarget $nick $chan]
+
     set text [string trim $text]
     if {$text eq "status"} {
         CmdAdminStatus $nick $host $hand $chan $text
@@ -21,13 +23,15 @@ proc ::dZSbot::Modules::Retention::CmdStatus {nick host hand chan text} {
 
     set modules [::dZSbot::ModuleManager::List]
     set commands [::dZSbot::Commands::List]
-    ::dZSbot::Commands::Reply $nick $chan "dZSbot: [llength $modules] modules loaded, [llength $commands] commands registered."
+    ::dZSbot::Commands::Reply $nick $replyTarget "dZSbot: [llength $modules] modules loaded, [llength $commands] commands registered."
 }
 
 proc ::dZSbot::Modules::Retention::CmdAdminStatus {nick host hand chan text} {
 
+    set replyTarget [StatusReplyTarget $nick $chan]
+
     if {![AdminAllowed $nick $hand $chan]} {
-        ::dZSbot::Commands::Reply $nick $chan "dZSbot: status requires channel op in [::dZSbot::Config::Get status.admin_channel "#staff"]."
+        ::dZSbot::Commands::Reply $nick $replyTarget "dZSbot: status requires channel op in [::dZSbot::Config::Get status.admin_channel "#staff"]."
         return
     }
 
@@ -36,12 +40,12 @@ proc ::dZSbot::Modules::Retention::CmdAdminStatus {nick host hand chan text} {
     set commands [::dZSbot::Commands::List]
     set policy [::dZSbot::SiteAdapter::Policy]
 
-    ::dZSbot::Commands::Reply $nick $chan "dZSbot status: [string toupper [dict get $summary overall]] | modules [llength $modules] | commands [llength $commands]"
-    ::dZSbot::Commands::Reply $nick $chan "Site: [dict get $policy adapter] | [dict get $policy host]:[dict get $policy port] | transport [dict get $policy command_transport] | TLS [dict get $policy tls_min_version]"
+    ::dZSbot::Commands::Reply $nick $replyTarget "dZSbot status: [string toupper [dict get $summary overall]] | modules [llength $modules] | commands [llength $commands]"
+    ::dZSbot::Commands::Reply $nick $replyTarget "Site: [dict get $policy adapter] | [dict get $policy host]:[dict get $policy port] | transport [dict get $policy command_transport] | TLS [dict get $policy tls_min_version]"
     if {[llength [info commands ::dZSbot::Modules::Pre::Store::StatusLine]]} {
-        ::dZSbot::Commands::Reply $nick $chan [::dZSbot::Modules::Pre::Store::StatusLine]
+        ::dZSbot::Commands::Reply $nick $replyTarget [::dZSbot::Modules::Pre::Store::StatusLine]
     }
-    ::dZSbot::Commands::Reply $nick $chan "Modules: [join $modules {, }]"
+    ::dZSbot::Commands::Reply $nick $replyTarget "Modules: [join $modules {, }]"
 
     set components {}
     dict for {component entry} [dict get $summary components] {
@@ -49,8 +53,18 @@ proc ::dZSbot::Modules::Retention::CmdAdminStatus {nick host hand chan text} {
     }
 
     if {[llength $components]} {
-        ::dZSbot::Commands::Reply $nick $chan "Health: [join $components { | }]"
+        ::dZSbot::Commands::Reply $nick $replyTarget "Health: [join $components { | }]"
     }
+}
+
+proc ::dZSbot::Modules::Retention::StatusReplyTarget {nick chan} {
+
+    set target [string tolower [::dZSbot::Config::Get status.reply_target "channel"]]
+    if {$target in {private privmsg pm query nick user} && $nick ne ""} {
+        return $nick
+    }
+
+    return $chan
 }
 
 proc ::dZSbot::Modules::Retention::AdminAllowed {nick hand chan} {

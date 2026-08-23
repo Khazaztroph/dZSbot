@@ -88,7 +88,7 @@ proc ::dZSbot::Modules::Upload::Announce {eventName payload} {
         return 0
     }
 
-    set channel [::dZSbot::Config::Get upload.announce.channel "#pre"]
+    set channel [ChannelForSection $section]
     ::dZSbot::Commands::Reply "" $channel [FormatLine $eventName $payload]
     return 1
 }
@@ -328,6 +328,48 @@ proc ::dZSbot::Modules::Upload::SectionAllowed {section} {
         if {[::dZSbot::SiteAdapter::SectionMatches $section $allowed]} {
             return 1
         }
+    }
+
+    return 0
+}
+
+proc ::dZSbot::Modules::Upload::ChannelForSection {section} {
+
+    set fallback [::dZSbot::Config::Get upload.announce.default_channel [::dZSbot::Config::Get upload.announce.channel "#pre"]]
+
+    foreach route [::dZSbot::Config::Get upload.announce.section_channels {}] {
+        if {[llength $route] < 2} {
+            continue
+        }
+
+        set channel [lindex $route 0]
+        set sections [lindex $route 1]
+        foreach allowed $sections {
+            if {[SectionMatchesRoute $section $allowed]} {
+                return $channel
+            }
+        }
+    }
+
+    return $fallback
+}
+
+proc ::dZSbot::Modules::Upload::SectionMatchesRoute {section allowed} {
+
+    set section [::dZSbot::SiteAdapter::NormalizeSection $section]
+    set allowed [::dZSbot::SiteAdapter::NormalizeSection $allowed]
+
+    if {$section eq "" || $allowed eq ""} {
+        return 0
+    }
+    if {[string equal -nocase $allowed $section]} {
+        return 1
+    }
+    if {[string match -nocase $allowed $section]} {
+        return 1
+    }
+    if {[string match -nocase "${allowed}-*" $section]} {
+        return 1
     }
 
     return 0
